@@ -58,7 +58,7 @@ $js_version = filemtime('js/main.js');
                     <button class="filter-btn" data-filter="양식">양식</button>
                     <button class="filter-btn" data-filter="일식">일식</button>
                     <button class="filter-btn" data-filter="기타">기타</button>
-                    <button class="filter-btn" data-filter="육류">육류</button>
+                    <button class="filter-btn" data-filter="뷔페">뷔페</button>
                     <?php if ($is_loggedin): ?>
                         <button class="filter-btn" data-filter="즐겨찾기">❤️ 즐겨찾기</button>
                     <?php endif; ?>

@@ -68,7 +68,7 @@ $js_version = filemtime('js/add.js');
                     <option value="양식">양식</option>
                     <option value="일식">일식</option>
                     <option value="기타">기타</option>
-                    <option value="육류">육류</option>
+                    <option value="뷔페">뷔페</option>
                 </select>
 
                 <div class="star-rating-input">
