@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const shareRestaurantId = document.getElementById('share-restaurant-id');
     const shareUserList = document.getElementById('share-user-list');
     const closeShareModalBtn = document.getElementById('close-share-modal-btn');
+    const ptrIndicator = document.getElementById('pull-to-refresh-indicator');
 
     // --- 상태 관리 변수 ---
     let isLoggedIn = false;
@@ -22,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredRestaurants = [];
     let currentPage = 1;
     const itemsPerPage = 10;
+    let touchStartY = 0;
+    let isRefreshing = false;
 
     // --- 페이지 초기화 ---
     initializeTheme();
@@ -33,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') handleSearch(); });
     searchInput.addEventListener('input', handleAutocomplete);
     document.addEventListener('click', (e) => {
+        if (shareModal && !shareModal.querySelector('.modal-content').contains(e.target) && !e.target.classList.contains('btn-share')) {
+             if (!shareModal.classList.contains('hidden')) {
+                closeShareModal();
+             }
+        }
         if (!searchResults.contains(e.target) && e.target !== searchInput) {
             searchResults.style.display = 'none';
         }
@@ -40,6 +48,45 @@ document.addEventListener('DOMContentLoaded', () => {
     searchResults.addEventListener('click', handleSearchResultClick);
     filterButtonsContainer.addEventListener('click', handleFilterClick);
     restaurantList.addEventListener('click', handleCardActions);
+    
+    // Pull-to-Refresh 이벤트 리스너
+    document.addEventListener('touchstart', (e) => {
+        if (window.scrollY === 0) {
+            touchStartY = e.touches[0].clientY;
+        } else {
+            touchStartY = -1;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (touchStartY === -1 || isRefreshing) return;
+
+        const touchY = e.touches[0].clientY;
+        const pullDistance = touchY - touchStartY;
+
+        if (pullDistance > 0) {
+            ptrIndicator.style.top = `${Math.min(pullDistance / 2 - 50, 20)}px`;
+            if (pullDistance > 150) {
+                ptrIndicator.classList.add('refreshing');
+            } else {
+                ptrIndicator.classList.remove('refreshing');
+            }
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+        if (touchStartY === -1 || isRefreshing) return;
+
+        if (ptrIndicator.classList.contains('refreshing')) {
+            isRefreshing = true;
+            ptrIndicator.style.top = '20px';
+            location.reload();
+        } else {
+            ptrIndicator.style.top = '-50px';
+        }
+        touchStartY = -1;
+    });
+
 
     // --- 테마 관리 ---
     function initializeTheme() {
@@ -269,7 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
             loginShowBtn.classList.add('hidden');
             document.querySelector('.btn-register').classList.add('hidden');
             loginForm.classList.remove('hidden');
-            usernameInput.focus();
+            
+            setTimeout(() => {
+                usernameInput.dispatchEvent(new Event('focus', { bubbles: true }));
+                usernameInput.click();
+            }, 200);
         });
     }
     if (loginSubmitBtn) {

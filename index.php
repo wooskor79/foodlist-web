@@ -1,7 +1,7 @@
 <?php
 // 파일명: www/index.php (이 코드로 전체 교체)
 
-// 💡 [추가] 로그인 세션 유효기간을 30일로 설정합니다.
+// 로그인 세션 유효기간을 30일로 설정합니다.
 $cookie_lifetime = 60 * 60 * 24 * 30; // 30일
 session_set_cookie_params($cookie_lifetime, "/");
 session_start();
@@ -21,10 +21,15 @@ $js_version = filemtime('js/main.js');
     <link rel="stylesheet" href="css/style.css?v=<?php echo $version; ?>">
 </head>
 <body>
+    <div id="pull-to-refresh-indicator">
+        <div class="arrow">⬇</div>
+        <div class="spinner"></div>
+    </div>
+
     <div class="container">
         <header>
             <div class="header-left">
-                <h1>맛집 리스트</h1>
+                <a href="index.php" class="header-title-link"><h1>맛집 리스트</h1></a>
                 <button id="theme-toggle-btn" class="theme-btn" aria-label="테마 전환">🌙</button>
             </div>
             <div class="header-buttons">
@@ -58,7 +63,7 @@ $js_version = filemtime('js/main.js');
                     <button class="filter-btn" data-filter="양식">양식</button>
                     <button class="filter-btn" data-filter="일식">일식</button>
                     <button class="filter-btn" data-filter="기타">기타</button>
-                    <button class="filter-btn" data-filter="뷔페">뷔페</button>
+                    <button class="filter-btn" data-filter="육류">육류</button>
                     <?php if ($is_loggedin): ?>
                         <button class="filter-btn" data-filter="즐겨찾기">❤️ 즐겨찾기</button>
                     <?php endif; ?>

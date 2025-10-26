@@ -14,6 +14,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--light-gr
 header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background-color: var(--primary-color); color: white; }
 .header-left { display: flex; align-items: center; gap: 1rem; }
 header h1 { font-size: 1.25rem; }
+.header-title-link { text-decoration: none; color: inherit; }
 main { padding: 1rem 1.5rem; }
 .theme-btn { background: none; border: 2px solid white; color: white; font-size: 1.2rem; cursor: pointer; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, background-color 0.2s; }
 .theme-btn:hover { transform: scale(1.1); background-color: rgba(255,255,255,0.2); }
@@ -62,30 +63,11 @@ body.dark-mode .card-header h3 { color: #a8caff; }
 .card-actions { display: flex; gap: 0.3rem; align-items: center; }
 .card-actions button { border: none; padding: 0.3rem 0.6rem; font-size: 0.8rem; border-radius: var(--border-radius); cursor: pointer; font-weight: 500; }
 .card-actions span { font-size: 0.8rem; color: var(--dark-gray); }
-
-/* --- 💡 [수정] 즐겨찾기 하트 아이콘 스타일 --- */
 .btn-favorite {
-    font-size: 1.6rem !important;
-    padding: 0 0.2rem 0 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--card-bg); /* 내부를 투명하게 */
-    -webkit-text-stroke-width: 1.5px; /* 테두리 두께 */
-    -webkit-text-stroke-color: var(--dark-gray); /* 테두리 색 */
-    transition: color 0.2s, transform 0.2s, -webkit-text-stroke-color 0.2s;
-    line-height: 1;
+    font-size: 1.6rem !important; padding: 0 0.2rem 0 0; background: none; border: none; cursor: pointer; color: var(--card-bg); -webkit-text-stroke-width: 1.5px; -webkit-text-stroke-color: var(--dark-gray); transition: color 0.2s, transform 0.2s, -webkit-text-stroke-color 0.2s; line-height: 1;
 }
-.btn-favorite:hover {
-    transform: scale(1.2);
-    -webkit-text-stroke-color: #000; /* 호버 시 테두리 색상 진하게 */
-}
-.btn-favorite.is-favorite {
-    color: #e74c3c; /* 채워진 색상 */
-    -webkit-text-stroke-width: 0; /* 테두리 제거 */
-}
-/* ------------------------------------- */
-
+.btn-favorite:hover { transform: scale(1.2); -webkit-text-stroke-color: #000; }
+.btn-favorite.is-favorite { color: #e74c3c; -webkit-text-stroke-width: 0; }
 .btn-share { background-color: #17a2b8; color: white; }
 .btn-edit { background-color: var(--primary-color); color: white; }
 .btn-delete { background-color: var(--danger-color); color: white; }
@@ -148,3 +130,39 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 .share-user-item input { width: auto; }
 .share-user-item label { flex-grow: 1; cursor: pointer; }
 #share-modal h2 { color: var(--text-color); }
+
+/* --- 💡 [추가] Pull-to-Refresh 스타일 --- */
+#pull-to-refresh-indicator {
+    position: fixed;
+    top: -50px;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 24px;
+    z-index: 999;
+    transition: top 0.2s;
+}
+#pull-to-refresh-indicator .spinner {
+    display: none;
+    border: 4px solid var(--gray);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+}
+#pull-to-refresh-indicator.refreshing .arrow {
+    display: none;
+}
+#pull-to-refresh-indicator.refreshing .spinner {
+    display: block;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
