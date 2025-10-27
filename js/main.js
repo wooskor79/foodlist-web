@@ -247,6 +247,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 `<p class="info-item"><strong>도로명:</strong> <span class="address-text">${roadAddrFull}</span></p>` +
                 (hasJibun ? `<p class="info-item jibun-address hidden"><strong>지번:</strong> <span class="address-text">${jibunAddrFull}</span></p>` : '');
             
+            // 💡 [수정] 평가(코멘트) 내용이 있거나 "0"이 아닐 경우에만 표시하도록 변경
+            let ratingHTML = '';
+            if (r.rating && r.rating.trim() !== '0' && r.rating.trim() !== '') {
+                ratingHTML = `
+                <div class="rating">
+                    <div class="rating-content"><strong>평가:</strong><p class="rating-text">${escapeHTML(r.rating)}</p></div>
+                </div>`;
+            }
+
             card.innerHTML = `
                 <div class="card-header">
                     <h3>${escapeHTML(r.name)}</h3>
@@ -263,9 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${addressContent}
                     <p class="info-item"><strong>음식:</strong> ${escapeHTML(r.food_type)}</p>
                 </div>
-                <div class="rating">
-                    <div class="rating-content"><strong>평가:</strong><p class="rating-text">${escapeHTML(r.rating)}</p></div>
-                </div>
+                ${ratingHTML}
                 <div class="star-display">${starDisplayHTML}</div>`;
             restaurantList.appendChild(card);
         });
@@ -637,6 +644,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function escapeHTML(str) {
         if (str === null || str === undefined) return '';
-        return str.toString().replace(/[&<>"']/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag));
+        return str.toString().replace(/[&<>"']/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#x27;', '"': '&quot;'}[tag] || tag));
     }
 });
