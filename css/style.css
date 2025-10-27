@@ -66,9 +66,7 @@ body.dark-mode .card-header h3 { color: #a8caff; }
 .card-actions { display: flex; gap: 0.3rem; align-items: center; }
 .card-actions button { border: none; padding: 0.3rem 0.6rem; font-size: 0.8rem; border-radius: var(--border-radius); cursor: pointer; font-weight: 500; }
 .card-actions span { font-size: 0.8rem; color: var(--dark-gray); }
-.btn-favorite {
-    font-size: 1.6rem !important; padding: 0 0.2rem 0 0; background: none; border: none; cursor: pointer; color: var(--card-bg); -webkit-text-stroke-width: 1.5px; -webkit-text-stroke-color: var(--dark-gray); transition: color 0.2s, transform 0.2s, -webkit-text-stroke-color 0.2s; line-height: 1;
-}
+.btn-favorite { font-size: 1.6rem !important; padding: 0 0.2rem 0 0; background: none; border: none; cursor: pointer; color: var(--card-bg); -webkit-text-stroke-width: 1.5px; -webkit-text-stroke-color: var(--dark-gray); transition: color 0.2s, transform 0.2s, -webkit-text-stroke-color 0.2s; line-height: 1; }
 .btn-favorite:hover { transform: scale(1.2); -webkit-text-stroke-color: #000; }
 .btn-favorite.is-favorite { color: #e74c3c; -webkit-text-stroke-width: 0; }
 .btn-share { background-color: #17a2b8; color: white; }
@@ -78,8 +76,8 @@ body.dark-mode .card-header h3 { color: #a8caff; }
 .btn-cancel-edit, .btn-cancel { background-color: var(--dark-gray); color: white; }
 .btn-confirm-yes { background-color: var(--danger-color); color: white; }
 .btn-confirm-no { background-color: var(--dark-gray); color: white; }
-.btn-toggle-jibun { font-size: 0.8rem; padding: 0.2rem 0.5rem; background-color: var(--gray); color: var(--text-color); border: 1px solid var(--card-border-color); border-radius: 10px; cursor: pointer; white-space: nowrap; align-self: center; }
-body.dark-mode .btn-toggle-jibun { background-color: var(--dark-gray); color: var(--text-color); }
+.btn-toggle-jibun, .btn-view-photo { font-size: 0.8rem; padding: 0.2rem 0.5rem; background-color: var(--gray); color: var(--text-color); border: 1px solid var(--card-border-color); border-radius: 10px; cursor: pointer; white-space: nowrap; align-self: center; }
+body.dark-mode .btn-toggle-jibun, body.dark-mode .btn-view-photo { background-color: var(--dark-gray); color: var(--text-color); }
 .hidden, .jibun-address.hidden { display: none !important; }
 .star-rating-input { margin-bottom: 1rem; }
 .star-instruction { font-size: 0.8rem; color: var(--dark-gray); margin-bottom: 0.25rem; }
@@ -115,14 +113,13 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 #detail-address-container { margin-bottom: 1rem; }
 .address-selectable { cursor: pointer; text-decoration: underline; color: var(--primary-color); }
 .address-selectable:hover { font-weight: bold; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-content { background-color: var(--card-bg); padding: 1.5rem; border-radius: var(--border-radius); box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 400px; }
 .modal-content h2 { margin-top: 0; margin-bottom: 1rem; font-size: 1.2rem; }
 .modal-content p { margin-bottom: 1rem; }
 #duplicate-list { background-color: var(--gray); border: 1px solid var(--card-border-color); border-radius: var(--border-radius); padding: 1rem; margin-bottom: 1.5rem; max-height: 150px; overflow-y: auto; }
 .duplicate-item { font-size: 0.9rem; border-bottom: 1px solid var(--card-border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
 .duplicate-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-.duplicate-item p { margin: 0.2rem 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .modal-actions button { padding: 0.6rem 1rem; border: none; border-radius: var(--border-radius); cursor: pointer; font-weight: 500; }
 .dark-mode-loading body { background-color: #212529; color: #dee2e6; }
@@ -138,3 +135,14 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 #pull-to-refresh-indicator.refreshing .arrow { display: none; }
 #pull-to-refresh-indicator.refreshing .spinner { display: block; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+/* 사진 추가 관련 스타일 */
+.photo-upload-section { margin-bottom: 1rem; }
+.photo-upload-section label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-color); }
+#photo-input { border: 1px dashed var(--input-border-color); padding: 1rem; background-color: var(--gray); text-align: center; cursor: pointer; }
+#thumbnail-preview { position: relative; margin-top: 1rem; max-width: 150px; }
+#thumbnail-image { display: block; width: 100%; height: auto; border-radius: var(--border-radius); border: 1px solid var(--card-border-color); }
+#remove-photo-btn { position: absolute; top: -10px; right: -10px; background-color: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 1.2rem; line-height: 22px; text-align: center; cursor: pointer; font-weight: bold; }
+/* 사진 보기 모달 스타일 */
+#photo-modal .photo-modal-content { position: relative; width: 90%; max-width: 500px; padding: 0; background: none; }
+#photo-modal #modal-image { display: block; width: 100%; max-height: 80vh; object-fit: contain; border-radius: var(--border-radius); }
+#photo-modal .photo-modal-close { position: absolute; top: -10px; right: -5px; color: white; font-size: 2.5rem; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px black; }

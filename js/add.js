@@ -1,229 +1,256 @@
 // 파일명: www/js/add.js (이 코드로 전체 교체)
-document.addEventListener('DOMContentLoaded', () => {
-    // --- 테마 관리 ---
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
-    function applyTheme(theme) {
-        if (theme === 'dark') {
-            document.body.classList.add('dark-mode');
-            if(themeToggleBtn) themeToggleBtn.textContent = '☀️';
-        } else {
-            document.body.classList.remove('dark-mode');
-            if(themeToggleBtn) themeToggleBtn.textContent = '🌙';
-        }
-        document.documentElement.classList.remove('dark-mode-loading');
-    }
-    function initializeTheme() {
-        try {
-            const preferredTheme = localStorage.getItem('theme') || 'light';
-            applyTheme(preferredTheme);
-        } catch (e) {
-            console.error('localStorage is not available');
-            applyTheme('light');
-        }
-    }
-    function toggleTheme() {
-        try {
-            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('theme', newTheme);
-            applyTheme(newTheme);
-        } catch (e) {
-            console.error('localStorage is not available');
-            showToast('테마 설정을 저장할 수 없습니다.', false);
-        }
-    }
-    initializeTheme();
-    if(themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
-
+document.addEventListener('DOMContentLoaded', function () {
     // --- 기본 요소 ---
-    const restaurantForm = document.getElementById('restaurant-form');
-    const starsContainer = document.querySelector('.stars');
-    const starRatingInput = document.getElementById('star-rating-value');
-    const zeroStarBtn = document.getElementById('zero-star-btn');
-    const currentRatingSpan = document.querySelector('.current-star-rating');
-    let currentRating = 0.0;
-
-    const addressSearchBtn = document.getElementById('address-search-btn');
-    const addressSearchInput = document.getElementById('address-search-input');
-    const locationDongInput = document.getElementById('location_dong_input');
-    const locationSiInput = document.getElementById('location-si-input');
-    const locationGuInput = document.getElementById('location-gu-input');
-    const locationRiInput = document.getElementById('location-ri-input'); 
+    const form = document.getElementById('add-restaurant-form');
+    const searchAddressBtn = document.getElementById('search-address-btn');
+    const addressSearchInput = document.getElementById('address-search');
+    const roadAddressInput = document.getElementById('road-address');
+    const jibunAddressInput = document.getElementById('jibun-address');
     const addressResultsContainer = document.getElementById('address-results-container');
-    const roadAddrSpan = document.getElementById('road-addr-result');
-    const jibunAddrSpan = document.getElementById('jibun-addr-result');
-    const jibunAddressInput = document.getElementById('jibun-address-input');
-    const detailAddressContainer = document.getElementById('detail-address-container');
-    const detailAddressInput = document.getElementById('detail-address-input');
-
-    // --- 중복 확인 모달 요소 ---
+    const addressResultsText = document.getElementById('address-results-text');
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const starsContainer = document.querySelector('.stars');
+    const starRatingInput = document.getElementById('star-rating');
+    const currentStarRatingSpan = document.querySelector('.current-star-rating');
+    const zeroStarBtn = document.querySelector('.btn-zero-star');
     const duplicateModal = document.getElementById('duplicate-modal');
     const duplicateList = document.getElementById('duplicate-list');
-    const forceSaveBtn = document.getElementById('force-save-btn');
-    const closeModalBtn = document.getElementById('close-modal-btn');
+    const forceAddBtn = document.getElementById('force-add-btn');
+    const cancelAddBtn = document.getElementById('cancel-add-btn');
 
-    // --- 주소 검색 이벤트 ---
-    addressSearchBtn.addEventListener('click', async () => {
-        const keyword = addressSearchInput.value.trim();
-        if (!keyword) {
-            showToast('주소를 입력해주세요.', false);
+    // 사진 관련 요소
+    const photoInput = document.getElementById('photo-input');
+    const thumbnailPreview = document.getElementById('thumbnail-preview');
+    const thumbnailImage = document.getElementById('thumbnail-image');
+    const removePhotoBtn = document.getElementById('remove-photo-btn');
+
+    let currentFormData = null;
+
+    // --- 초기화 ---
+    initializeTheme();
+
+    // --- 이벤트 리스너 ---
+    themeToggleBtn.addEventListener('click', toggleTheme);
+    searchAddressBtn.addEventListener('click', searchAddress);
+    addressSearchInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') searchAddress();
+    });
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        currentFormData = new FormData(form);
+        checkDuplicateAndSave();
+    });
+
+    starsContainer.addEventListener('click', handleStarClick);
+    zeroStarBtn.addEventListener('click', resetStars);
+
+    forceAddBtn.addEventListener('click', () => {
+        if (currentFormData) {
+            saveRestaurant(currentFormData, true);
+        }
+        duplicateModal.classList.add('hidden');
+    });
+    cancelAddBtn.addEventListener('click', () => {
+        duplicateModal.classList.add('hidden');
+    });
+
+    // 사진 첨부 이벤트 리스너
+    photoInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                thumbnailImage.src = e.target.result;
+                thumbnailPreview.classList.remove('hidden');
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // 사진 제거 버튼 이벤트 리스너
+    removePhotoBtn.addEventListener('click', function() {
+        photoInput.value = ''; // 파일 선택 초기화
+        thumbnailImage.src = '#';
+        thumbnailPreview.classList.add('hidden');
+    });
+
+    // --- 함수 ---
+    function initializeTheme() {
+        try {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggleBtn.textContent = '☀️';
+            } else {
+                themeToggleBtn.textContent = '🌙';
+            }
+        } catch (e) { console.error("테마 로딩 실패:", e); }
+    }
+
+    function toggleTheme() {
+        try {
+            document.body.classList.toggle('dark-mode');
+            const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('theme', theme);
+        } catch (e) { console.error("테마 저장 실패:", e); }
+    }
+    
+    async function searchAddress() {
+        const query = addressSearchInput.value.trim();
+        if (!query) {
+            showToast('검색할 주소를 입력하세요.', false);
             return;
         }
 
-        const apiKey = 'devU01TX0FVVEgyMDI1MTAyNDE0MjA0MTExNjM1OTY=';
-        const apiUrl = `https://www.juso.go.kr/addrlink/addrLinkApi.do?confmKey=${apiKey}&currentPage=1&countPerPage=5&keyword=${encodeURIComponent(keyword)}&resultType=json`;
-
-        addressSearchBtn.disabled = true;
-        addressSearchBtn.textContent = '검색중...';
+        searchAddressBtn.disabled = true;
+        searchAddressBtn.textContent = '검색중...';
+        
+        // 💡 [수정] 아래 YOUR_KAKAO_JAVASCRIPT_KEY 부분을 발급받은 키로 교체하세요.
+        const KAKAO_API_KEY = '8e81a9a25a27857ac71bb70d8690f53d';
 
         try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) throw new Error('API 요청 실패');
-            
+            const response = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`, {
+                headers: { 'Authorization': `KakaoAK ${KAKAO_API_KEY}` }
+            });
             const data = await response.json();
 
-            if (data.results && data.results.juso && data.results.juso.length > 0) {
-                const firstResult = data.results.juso[0];
+            // data.documents가 있는지 확인하여 2차 오류 방지
+            if (data.documents && data.documents.length > 0) {
+                const addr = data.documents[0];
+                roadAddressInput.value = addr.road_address ? addr.road_address.address_name : '';
+                jibunAddressInput.value = addr.address ? addr.address.address_name : '';
                 
-                locationSiInput.value = firstResult.siNm;
-                locationGuInput.value = firstResult.sggNm;
-                locationDongInput.value = firstResult.emdNm;
-                locationRiInput.value = firstResult.liNm || '';
-
-                roadAddrSpan.textContent = firstResult.roadAddr;
-                jibunAddrSpan.textContent = firstResult.jibunAddr;
-                jibunAddressInput.value = firstResult.jibunAddr;
-
-                addressSearchInput.value = '';
-                detailAddressContainer.classList.add('hidden');
+                addressResultsText.innerHTML = `<strong>도로명:</strong> ${roadAddressInput.value || '없음'}<br><strong>지번:</strong> ${jibunAddressInput.value || '없음'}`;
                 addressResultsContainer.classList.remove('hidden');
-                showToast('주소 검색 완료! 아래 주소를 클릭하세요.', true);
+                
+                if (data.documents.length > 1) {
+                     addressResultsText.innerHTML += `<br><small>(${data.documents.length}개의 결과 중 첫 번째 항목 선택됨)</small>`;
+                }
             } else {
-                showToast('검색된 주소가 없습니다. 다시 시도해주세요.', false);
-                locationDongInput.value = '';
-                locationSiInput.value = '';
-                locationGuInput.value = '';
-                locationRiInput.value = '';
+                showToast(data.message || '검색 결과가 없습니다.', false);
+                roadAddressInput.value = '';
                 jibunAddressInput.value = '';
                 addressResultsContainer.classList.add('hidden');
             }
         } catch (error) {
-            console.error('Address search error:', error);
+            console.error('주소 검색 API 오류:', error);
             showToast('주소 검색 중 오류가 발생했습니다.', false);
         } finally {
-            addressSearchBtn.disabled = false;
-            addressSearchBtn.textContent = '주소 검색';
-        }
-    });
-
-    addressResultsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('address-selectable')) {
-            addressSearchInput.value = e.target.textContent;
-            detailAddressContainer.classList.remove('hidden');
-            detailAddressInput.focus();
-        }
-    });
-
-    // --- 별점 로직 ---
-    starsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('star')) {
-            const clickedValue = parseInt(e.target.dataset.value);
-            currentRating = (currentRating === clickedValue - 0.5) ? clickedValue : clickedValue - 0.5;
-            starRatingInput.value = currentRating;
-            updateStars(currentRating);
-        }
-    });
-    zeroStarBtn.addEventListener('click', () => {
-        currentRating = 0.0;
-        starRatingInput.value = currentRating;
-        updateStars(currentRating);
-    });
-    function updateStars(rating) {
-        const stars = starsContainer.querySelectorAll('.star');
-        stars.forEach(star => {
-            const starValue = parseInt(star.dataset.value);
-            star.classList.remove('filled', 'half');
-            if (rating >= starValue) star.classList.add('filled');
-            else if (rating >= starValue - 0.5) star.classList.add('half');
-        });
-        if (currentRatingSpan) {
-            currentRatingSpan.textContent = `${rating.toFixed(1)} / 5.0`;
+            searchAddressBtn.disabled = false;
+            searchAddressBtn.textContent = '주소 검색';
         }
     }
 
-    // --- 폼 제출 로직 ---
-    restaurantForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(restaurantForm);
-        if (!formData.get('address').trim()) {
-            showToast('주소를 검색 후 선택해주세요.', false);
-            return;
-        }
+    async function checkDuplicateAndSave() {
+        const formData = new FormData(form);
         try {
-            const checkResponse = await fetch('api/check_duplicate.php', { method: 'POST', body: formData });
-            const checkResult = await checkResponse.json();
-            if (checkResult.success && checkResult.duplicate) {
-                displayDuplicates(checkResult.data);
+            const response = await fetch('api/check_duplicate.php', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            if (result.is_duplicate) {
+                let listHtml = '';
+                result.duplicates.forEach(item => {
+                    listHtml += `<div class="duplicate-item">
+                                    <p><strong>가게명:</strong> ${escapeHTML(item.name)}</p>
+                                    <p><strong>주소:</strong> ${escapeHTML(item.address)}</p>
+                                 </div>`;
+                });
+                duplicateList.innerHTML = listHtml;
+                duplicateModal.classList.remove('hidden');
             } else {
-                saveRestaurant(formData);
+                saveRestaurant(formData, false);
             }
         } catch (error) {
-            console.error('Error checking for duplicates:', error);
-            showToast('중복 확인 중 오류가 발생했습니다.', false);
+            console.error('중복 확인 오류:', error);
+            showToast('저장 중 오류가 발생했습니다.', false);
         }
-    });
-
-    // --- 중복 모달 관련 함수 ---
-    function displayDuplicates(duplicates) {
-        duplicateList.innerHTML = '';
-        duplicates.forEach(dup => {
-            const item = document.createElement('div');
-            item.className = 'duplicate-item';
-            const detail = dup.detail_address ? ` ${escapeHTML(dup.detail_address)}` : '';
-            item.innerHTML = `
-                <p><strong>가게:</strong> ${escapeHTML(dup.name)}</p>
-                <p><strong>주소:</strong> ${escapeHTML(dup.address)}${escapeHTML(detail)}</p>
-                <p><strong>종류:</strong> ${escapeHTML(dup.food_type)}</p>
-            `;
-            duplicateList.appendChild(item);
-        });
-        duplicateModal.classList.remove('hidden');
-    }
-    forceSaveBtn.addEventListener('click', () => {
-        const formData = new FormData(restaurantForm);
-        saveRestaurant(formData);
-        closeModal();
-    });
-    closeModalBtn.addEventListener('click', closeModal);
-    function closeModal() {
-        duplicateModal.classList.add('hidden');
     }
 
-    // --- 맛집 저장 함수 ---
-    async function saveRestaurant(formData) {
-        const submitButton = restaurantForm.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = '저장 중...';
+    async function saveRestaurant(formData, force = false) {
+        if (force) {
+            formData.append('force', 'true');
+        }
+
+        const saveBtn = form.querySelector('.btn-save');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '저장 중...';
+
         try {
-            const response = await fetch('api/save_restaurant.php', { method: 'POST', body: formData });
+            const response = await fetch('api/save_restaurant.php', {
+                method: 'POST',
+                body: formData
+            });
+
             const result = await response.json();
-            showToast(result.message, result.success);
+
             if (result.success) {
-                setTimeout(() => { window.location.href = 'index.php'; }, 1500);
+                showToast(result.message, true);
+                setTimeout(() => {
+                    window.location.href = 'index.php';
+                }, 1000);
+            } else {
+                showToast(result.message, false);
             }
         } catch (error) {
             console.error('Error saving restaurant:', error);
-            showToast('맛집 정보 저장 중 오류가 발생했습니다.', false);
+            showToast('맛집을 저장하는 데 실패했습니다.', false);
         } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = '저장';
+            saveBtn.disabled = false;
+            saveBtn.textContent = '저장';
         }
     }
     
-    // --- 기타 유틸리티 함수 ---
+    function handleStarClick(e) {
+        if (e.target.classList.contains('star')) {
+            const clickedValue = parseInt(e.target.dataset.value);
+            const rect = e.target.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const starWidth = rect.width;
+            const isHalf = clickX < starWidth / 2;
+
+            let newRating;
+            const currentRating = parseFloat(starRatingInput.value);
+
+            if (isHalf) {
+                newRating = clickedValue - 0.5;
+            } else {
+                newRating = clickedValue;
+            }
+
+            if (currentRating === newRating) {
+                newRating = 0.0;
+            }
+            
+            updateStars(newRating);
+        }
+    }
+    
+    function resetStars() {
+        updateStars(0.0);
+    }
+
+    function updateStars(rating) {
+        starRatingInput.value = rating.toFixed(1);
+        currentStarRatingSpan.textContent = `${rating.toFixed(1)} / 5.0`;
+
+        const allStars = starsContainer.querySelectorAll('.star');
+        allStars.forEach(star => {
+            const starValue = parseInt(star.dataset.value);
+            star.classList.remove('filled', 'half');
+            if (rating >= starValue) {
+                star.classList.add('filled');
+            } else if (rating >= starValue - 0.5) {
+                star.classList.add('half');
+            }
+        });
+    }
+
     function showToast(message, isSuccess = true) {
         const container = document.getElementById('toast-container');
-        if (!container) return;
+        if(!container) return;
         const toast = document.createElement('div');
         toast.className = `toast ${isSuccess ? 'success' : 'error'}`;
         toast.textContent = message;
@@ -234,10 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.addEventListener('transitionend', () => toast.remove());
         }, 3000);
     }
-
-    // 💡 [수정] escapeHTML 함수 오류 수정
+    
     function escapeHTML(str) {
-        if (str === null || str === undefined) return '';
-        return str.toString().replace(/[&<>"']/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[tag] || tag));
+        if (!str) return '';
+        return str.toString().replace(/[&<>"']/g, function(tag) {
+            const chars = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+            return chars[tag] || tag;
+        });
     }
 });

@@ -58,6 +58,10 @@ CREATE TABLE `user_favorites` (
   UNIQUE KEY `user_favorite_unique` (`user_id`,`restaurant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자별 즐겨찾기 테이블';
 
+-- 이미지
+ALTER TABLE `restaurants`
+ADD COLUMN `image_path` VARCHAR(255) NULL DEFAULT NULL AFTER `star_rating`;
+
 -- 7. 최초 접속을 위한 테스트용 계정을 추가합니다. (ID: test / PW: 1234)
 INSERT INTO `users` (`username`, `password_hash`) VALUES
 ('test', '$2y$10$ifz.f.2m5n5.n5y4GzX.W.a.R.E.e.W.c.U.t.H.o.L.i.s');

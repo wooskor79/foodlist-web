@@ -105,6 +105,13 @@ $js_version = filemtime('js/main.js');
         </div>
     </div>
 
+    <div id="photo-modal" class="modal-overlay hidden">
+        <div class="photo-modal-content">
+            <span id="close-photo-modal-btn" class="photo-modal-close">&times;</span>
+            <img id="modal-image" src="" alt="맛집 사진">
+        </div>
+    </div>
+
     <script src="js/main.js?v=<?php echo $js_version; ?>"></script>
 </body>
 </html>

@@ -10,12 +10,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const paginationTop = document.getElementById('pagination-top');
     const paginationBottom = document.getElementById('pagination-bottom');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    
+    // 모달 요소
     const shareModal = document.getElementById('share-modal');
     const shareForm = document.getElementById('share-form');
     const shareRestaurantName = document.getElementById('share-restaurant-name');
     const shareRestaurantId = document.getElementById('share-restaurant-id');
     const shareUserList = document.getElementById('share-user-list');
     const closeShareModalBtn = document.getElementById('close-share-modal-btn');
+    const photoModal = document.getElementById('photo-modal');
+    const modalImage = document.getElementById('modal-image');
+    const closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
+    
     const ptrIndicator = document.getElementById('pull-to-refresh-indicator');
 
     // --- 상태 관리 변수 ---
@@ -43,6 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeShareModal();
              }
         }
+        if (photoModal && !photoModal.querySelector('.photo-modal-content').contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
+            if (!photoModal.classList.contains('hidden')) {
+                closePhotoModal();
+            }
+        }
         if (!searchResults.contains(e.target) && e.target !== searchInput) {
             searchResults.style.display = 'none';
         }
@@ -50,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchResults.addEventListener('click', handleSearchResultClick);
     filterButtonsContainer.addEventListener('click', handleFilterClick);
     restaurantList.addEventListener('click', handleCardActions);
+    closePhotoModalBtn.addEventListener('click', closePhotoModal);
     
     // Pull-to-Refresh 이벤트 리스너
     document.addEventListener('touchstart', (e) => {
@@ -62,10 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('touchmove', (e) => {
         if (touchStartY === -1 || isRefreshing) return;
-
         const touchY = e.touches[0].clientY;
         const pullDistance = touchY - touchStartY;
-
         if (pullDistance > 0) {
             ptrIndicator.style.top = `${Math.min(pullDistance / 2 - 50, 20)}px`;
             if (pullDistance > 150) {
@@ -78,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('touchend', () => {
         if (touchStartY === -1 || isRefreshing) return;
-
         if (ptrIndicator.classList.contains('refreshing')) {
             isRefreshing = true;
             ptrIndicator.style.top = '20px';
@@ -89,33 +98,25 @@ document.addEventListener('DOMContentLoaded', () => {
         touchStartY = -1;
     });
 
-
     // --- 테마 관리 ---
     function initializeTheme() {
         try {
-            const preferredTheme = localStorage.getItem('theme');
-            if (preferredTheme === 'dark') {
+            if (localStorage.getItem('theme') === 'dark') {
                 document.body.classList.add('dark-mode');
                 themeToggleBtn.textContent = '☀️';
             } else {
-                document.body.classList.remove('dark-mode');
                 themeToggleBtn.textContent = '🌙';
             }
-        } catch (error) { console.error('테마 불러오기 실패:', error); }
+        } catch (e) { console.error('테마 로딩 실패:', e); }
     }
 
     function toggleTheme() {
         try {
             document.body.classList.toggle('dark-mode');
-            let theme = 'light';
-            if (document.body.classList.contains('dark-mode')) {
-                theme = 'dark';
-                themeToggleBtn.textContent = '☀️';
-            } else {
-                themeToggleBtn.textContent = '🌙';
-            }
+            const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
             localStorage.setItem('theme', theme);
-        } catch (error) { console.error('테마 저장 실패:', error); }
+        } catch (e) { console.error('테마 저장 실패:', e); }
     }
     
     // --- 핵심 기능 함수 ---
@@ -147,28 +148,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleSortChange() {
-        // 필터는 그대로 두고 정렬만 다시 적용
         applyFilterAndRender(filterButtonsContainer.querySelector('.active')?.dataset.filter || '모두');
     }
 
     function sortAndRender() {
         const sortBy = sortDropdown.value;
-
         filteredRestaurants.sort((a, b) => {
             if (sortBy === 'rating') {
-                // 별점순: 별점 높은 순 -> 같으면 이름 가나다순
                 const ratingA = parseFloat(a.star_rating);
                 const ratingB = parseFloat(b.star_rating);
-                if (ratingB !== ratingA) {
-                    return ratingB - ratingA;
-                }
+                if (ratingB !== ratingA) return ratingB - ratingA;
                 return a.name.localeCompare(b.name, 'ko');
-            } else { // 'name'
-                // 이름순: 가나다순
+            } else {
                 return a.name.localeCompare(b.name, 'ko');
             }
         });
-
         currentPage = 1;
         renderPage(currentPage);
     }
@@ -181,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             filteredRestaurants = allRestaurants.filter(r => r.food_type === filter);
         }
-        sortAndRender(); // 필터 후 정렬 실행
+        sortAndRender();
     }
     
     function renderPage(page) {
@@ -209,6 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.isFavorite = r.is_favorite;
             card.dataset.isOwner = r.is_owner;
             card.dataset.ownerName = r.owner_name;
+            // image_path 데이터셋 추가
+            card.dataset.imagePath = r.image_path || '';
 
             const isOwner = r.is_owner == 1;
             const favoriteBtn = isLoggedIn ? `<button class="btn-favorite ${r.is_favorite == 1 ? 'is-favorite' : ''}" aria-label="즐겨찾기">♥</button>` : '';
@@ -239,6 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasJibun = r.jibun_address && r.jibun_address !== r.address;
             const jibunButton = hasJibun ? `<button class="btn-toggle-jibun">지번보기</button>` : '';
 
+            // 사진보기 버튼 추가
+            const photoButton = r.image_path ? `<button class="btn-view-photo">사진보기</button>` : '';
+            
             const detailAddr = r.detail_address ? ` ${escapeHTML(r.detail_address)}` : '';
             const roadAddrFull = `${escapeHTML(r.address)}${detailAddr}`;
             const jibunAddrFull = r.jibun_address ? `${escapeHTML(r.jibun_address)}${detailAddr}` : '';
@@ -249,10 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let ratingHTML = '';
             if (r.rating && r.rating.trim() !== '0' && r.rating.trim() !== '') {
-                ratingHTML = `
-                <div class="rating">
-                    <div class="rating-content"><strong>평가:</strong><p class="rating-text">${escapeHTML(r.rating)}</p></div>
-                </div>`;
+                ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong><p class="rating-text">${escapeHTML(r.rating)}</p></div></div>`;
             }
 
             card.innerHTML = `
@@ -263,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="subheader-left">
                         <span class="location-dong">(${escapeHTML(r.location_dong)})</span>
                         ${jibunButton}
+                        ${photoButton}
                     </div>
                     ${actionButtons}
                 </div>
@@ -351,9 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.btn-register').classList.add('hidden');
             loginForm.classList.remove('hidden');
             
-            // 💡 [수정] 한글 입력 문제 해결을 위한 최종 시도
             setTimeout(() => {
-                // 타입을 아주 잠깐 변경했다가 되돌려 입력기를 리셋합니다.
                 usernameInput.setAttribute('type', 'password'); 
                 usernameInput.focus();
                 setTimeout(() => {
@@ -397,6 +392,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const jibunP = card.querySelector('.jibun-address');
             if (jibunP) jibunP.classList.toggle('hidden');
             e.target.textContent = jibunP.classList.contains('hidden') ? '지번보기' : '숨기기';
+            return;
+        }
+
+        // 사진보기 버튼 클릭 처리
+        if (e.target.classList.contains('btn-view-photo')) {
+            const imagePath = card.dataset.imagePath;
+            if (imagePath) {
+                openPhotoModal(imagePath);
+            }
             return;
         }
         
@@ -504,6 +508,18 @@ document.addEventListener('DOMContentLoaded', () => {
             shareUserList.innerHTML = `<p class="placeholder">사용자 목록 로딩 실패</p>`;
         }
     }
+    
+    function openPhotoModal(imagePath) {
+        // 썸네일 경로에서 원본 경로를 유추합니다.
+        const originalImagePath = imagePath.replace('/thumb/', '/');
+        modalImage.src = 'images/' + originalImagePath.split('/').pop();
+        photoModal.classList.remove('hidden');
+    }
+
+    function closePhotoModal() {
+        photoModal.classList.add('hidden');
+        modalImage.src = ''; // 이미지 소스 초기화
+    }
 
     function renderUserList(users) {
         if (users.length === 0) {
@@ -565,7 +581,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 button.classList.toggle('is-favorite', newStatus === 1);
                 const restaurant = allRestaurants.find(r => r.id == id);
                 if (restaurant) restaurant.is_favorite = newStatus;
-                // 즐겨찾기 필터가 활성 상태일 때만 목록을 다시 렌더링
                 if (filterButtonsContainer.querySelector('.active')?.dataset.filter === '즐겨찾기') {
                     applyFilterAndRender('즐겨찾기');
                 }
