@@ -1,4 +1,4 @@
-// 파일명: www/js/main.js (이 코드로 전체 교체)
+// 파일명: www/js/main.js (기존 코드를 기반으로 사진 보기 기능 추가)
 document.addEventListener('DOMContentLoaded', () => {
     // --- 기본 요소 ---
     const searchInput = document.getElementById('dong-search-input');
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const paginationBottom = document.getElementById('pagination-bottom');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
     
-    // 모달 요소
+    // 💡 [수정] 모달 관련 요소 추가
     const shareModal = document.getElementById('share-modal');
     const shareForm = document.getElementById('share-form');
     const shareRestaurantName = document.getElementById('share-restaurant-name');
@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') handleSearch(); });
     searchInput.addEventListener('input', handleAutocomplete);
     sortDropdown.addEventListener('change', handleSortChange);
+    
+    // 💡 [수정] 모달 닫기 이벤트 리스너 추가
     document.addEventListener('click', (e) => {
         if (shareModal && !shareModal.querySelector('.modal-content').contains(e.target) && !e.target.classList.contains('btn-share')) {
              if (!shareModal.classList.contains('hidden')) {
@@ -58,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             searchResults.style.display = 'none';
         }
     });
+
     searchResults.addEventListener('click', handleSearchResultClick);
     filterButtonsContainer.addEventListener('click', handleFilterClick);
     restaurantList.addEventListener('click', handleCardActions);
@@ -203,8 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.isFavorite = r.is_favorite;
             card.dataset.isOwner = r.is_owner;
             card.dataset.ownerName = r.owner_name;
-            // image_path 데이터셋 추가
-            card.dataset.imagePath = r.image_path || '';
+            // 💡 [수정] DB에서 온 파일명을 데이터셋에 저장
+            card.dataset.imagePath = r.image_path || ''; 
 
             const isOwner = r.is_owner == 1;
             const favoriteBtn = isLoggedIn ? `<button class="btn-favorite ${r.is_favorite == 1 ? 'is-favorite' : ''}" aria-label="즐겨찾기">♥</button>` : '';
@@ -235,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasJibun = r.jibun_address && r.jibun_address !== r.address;
             const jibunButton = hasJibun ? `<button class="btn-toggle-jibun">지번보기</button>` : '';
 
-            // 사진보기 버튼 추가
+            // 💡 [수정] 사진보기 버튼 추가
             const photoButton = r.image_path ? `<button class="btn-view-photo">사진보기</button>` : '';
             
             const detailAddr = r.detail_address ? ` ${escapeHTML(r.detail_address)}` : '';
@@ -395,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 사진보기 버튼 클릭 처리
+        // 💡 [수정] 사진보기 버튼 클릭 처리
         if (e.target.classList.contains('btn-view-photo')) {
             const imagePath = card.dataset.imagePath;
             if (imagePath) {
@@ -509,10 +512,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // 💡 [수정] 사진 보기 모달 함수 로직 수정
     function openPhotoModal(imagePath) {
-        // 썸네일 경로에서 원본 경로를 유추합니다.
-        const originalImagePath = imagePath.replace('/thumb/', '/');
-        modalImage.src = 'images/' + originalImagePath.split('/').pop();
+        if (!imagePath) return;
+        // DB에서 가져온 파일명으로 원본 이미지의 전체 경로를 만듭니다.
+        modalImage.src = 'images/' + imagePath; 
         photoModal.classList.remove('hidden');
     }
 

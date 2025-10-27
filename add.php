@@ -7,6 +7,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// 카카오 API JavaScript 키를 이곳에서 관리합니다.
+$kakao_api_key = "341110f947a005cbf66da8265ac7a95c"; // 본인의 JavaScript 키
+
 $version = filemtime('css/style.css');
 $js_version = filemtime('js/add.js');
 ?>
@@ -16,6 +19,9 @@ $js_version = filemtime('js/add.js');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>맛집 추가</title>
+
+    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=<?php echo $kakao_api_key; ?>&libraries=services&autoload=false" defer></script>
+
     <link rel="stylesheet" href="css/style.css?v=<?php echo $version; ?>">
 </head>
 <body>

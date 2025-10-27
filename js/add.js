@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let currentFormData = null;
 
+    // 💡 [수정] 카카오맵 API가 로드된 후 주소 검색 객체를 초기화
+    let geocoder;
+    kakao.maps.load(function() {
+        geocoder = new kakao.maps.services.Geocoder();
+    });
+    
     // --- 초기화 ---
     initializeTheme();
 
@@ -55,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function () {
         duplicateModal.classList.add('hidden');
     });
 
-    // 사진 첨부 이벤트 리스너
     photoInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (file) {
@@ -68,9 +73,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 사진 제거 버튼 이벤트 리스너
     removePhotoBtn.addEventListener('click', function() {
-        photoInput.value = ''; // 파일 선택 초기화
+        photoInput.value = '';
         thumbnailImage.src = '#';
         thumbnailPreview.classList.add('hidden');
     });
@@ -96,7 +100,13 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) { console.error("테마 저장 실패:", e); }
     }
     
-    async function searchAddress() {
+    function searchAddress() {
+        // 💡 [수정] geocoder 객체가 로드되었는지 확인
+        if (!geocoder) {
+            showToast('지도 API가 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.', false);
+            return;
+        }
+
         const query = addressSearchInput.value.trim();
         if (!query) {
             showToast('검색할 주소를 입력하세요.', false);
@@ -106,40 +116,31 @@ document.addEventListener('DOMContentLoaded', function () {
         searchAddressBtn.disabled = true;
         searchAddressBtn.textContent = '검색중...';
         
-        // 💡 [수정] 아래 YOUR_KAKAO_JAVASCRIPT_KEY 부분을 발급받은 키로 교체하세요.
-        const KAKAO_API_KEY = '8e81a9a25a27857ac71bb70d8690f53d';
+        const callback = function(result, status) {
+            searchAddressBtn.disabled = false;
+            searchAddressBtn.textContent = '주소 검색';
 
-        try {
-            const response = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`, {
-                headers: { 'Authorization': `KakaoAK ${KAKAO_API_KEY}` }
-            });
-            const data = await response.json();
-
-            // data.documents가 있는지 확인하여 2차 오류 방지
-            if (data.documents && data.documents.length > 0) {
-                const addr = data.documents[0];
+            if (status === kakao.maps.services.Status.OK) {
+                const addr = result[0];
                 roadAddressInput.value = addr.road_address ? addr.road_address.address_name : '';
                 jibunAddressInput.value = addr.address ? addr.address.address_name : '';
-                
+
                 addressResultsText.innerHTML = `<strong>도로명:</strong> ${roadAddressInput.value || '없음'}<br><strong>지번:</strong> ${jibunAddressInput.value || '없음'}`;
                 addressResultsContainer.classList.remove('hidden');
-                
-                if (data.documents.length > 1) {
-                     addressResultsText.innerHTML += `<br><small>(${data.documents.length}개의 결과 중 첫 번째 항목 선택됨)</small>`;
+
+                if (result.length > 1) {
+                    addressResultsText.innerHTML += `<br><small>(${result.length}개의 결과 중 첫 번째 항목 선택됨)</small>`;
                 }
+
             } else {
-                showToast(data.message || '검색 결과가 없습니다.', false);
+                showToast('검색 결과가 없습니다.', false);
                 roadAddressInput.value = '';
                 jibunAddressInput.value = '';
                 addressResultsContainer.classList.add('hidden');
             }
-        } catch (error) {
-            console.error('주소 검색 API 오류:', error);
-            showToast('주소 검색 중 오류가 발생했습니다.', false);
-        } finally {
-            searchAddressBtn.disabled = false;
-            searchAddressBtn.textContent = '주소 검색';
-        }
+        };
+
+        geocoder.addressSearch(query, callback);
     }
 
     async function checkDuplicateAndSave() {
@@ -183,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 method: 'POST',
                 body: formData
             });
-
             const result = await response.json();
 
             if (result.success) {
