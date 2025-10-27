@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchResults = document.getElementById('search-results');
     const restaurantList = document.getElementById('restaurant-list');
     const filterButtonsContainer = document.getElementById('filter-buttons');
+    const sortDropdown = document.getElementById('sort-dropdown');
     const paginationTop = document.getElementById('pagination-top');
     const paginationBottom = document.getElementById('pagination-bottom');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchBtn.addEventListener('click', handleSearch);
     searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') handleSearch(); });
     searchInput.addEventListener('input', handleAutocomplete);
+    sortDropdown.addEventListener('change', handleSortChange);
     document.addEventListener('click', (e) => {
         if (shareModal && !shareModal.querySelector('.modal-content').contains(e.target) && !e.target.classList.contains('btn-share')) {
              if (!shareModal.classList.contains('hidden')) {
@@ -144,6 +146,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function handleSortChange() {
+        // 필터는 그대로 두고 정렬만 다시 적용
+        applyFilterAndRender(filterButtonsContainer.querySelector('.active')?.dataset.filter || '모두');
+    }
+
+    function sortAndRender() {
+        const sortBy = sortDropdown.value;
+
+        filteredRestaurants.sort((a, b) => {
+            if (sortBy === 'rating') {
+                // 별점순: 별점 높은 순 -> 같으면 이름 가나다순
+                const ratingA = parseFloat(a.star_rating);
+                const ratingB = parseFloat(b.star_rating);
+                if (ratingB !== ratingA) {
+                    return ratingB - ratingA;
+                }
+                return a.name.localeCompare(b.name, 'ko');
+            } else { // 'name'
+                // 이름순: 가나다순
+                return a.name.localeCompare(b.name, 'ko');
+            }
+        });
+
+        currentPage = 1;
+        renderPage(currentPage);
+    }
+    
     function applyFilterAndRender(filter) {
         if (filter === '즐겨찾기') {
             filteredRestaurants = allRestaurants.filter(r => r.is_favorite == 1);
@@ -152,8 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             filteredRestaurants = allRestaurants.filter(r => r.food_type === filter);
         }
-        currentPage = 1;
-        renderPage(currentPage);
+        sortAndRender(); // 필터 후 정렬 실행
     }
     
     function renderPage(page) {
@@ -525,6 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 button.classList.toggle('is-favorite', newStatus === 1);
                 const restaurant = allRestaurants.find(r => r.id == id);
                 if (restaurant) restaurant.is_favorite = newStatus;
+                // 즐겨찾기 필터가 활성 상태일 때만 목록을 다시 렌더링
                 if (filterButtonsContainer.querySelector('.active')?.dataset.filter === '즐겨찾기') {
                     applyFilterAndRender('즐겨찾기');
                 }

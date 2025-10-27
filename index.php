@@ -68,6 +68,14 @@ $js_version = filemtime('js/main.js');
                         <button class="filter-btn" data-filter="즐겨찾기">❤️ 즐겨찾기</button>
                     <?php endif; ?>
                 </div>
+
+                <div class="sort-container">
+                    <select id="sort-dropdown" class="sort-dropdown">
+                        <option value="name">이름순 정렬</option>
+                        <option value="rating">별점순 정렬</option>
+                    </select>
+                </div>
+                
                 <hr>
                 
                 <div id="pagination-top" class="pagination-container"></div>
