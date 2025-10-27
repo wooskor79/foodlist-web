@@ -247,7 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 `<p class="info-item"><strong>도로명:</strong> <span class="address-text">${roadAddrFull}</span></p>` +
                 (hasJibun ? `<p class="info-item jibun-address hidden"><strong>지번:</strong> <span class="address-text">${jibunAddrFull}</span></p>` : '');
             
-            // 💡 [수정] 평가(코멘트) 내용이 있거나 "0"이 아닐 경우에만 표시하도록 변경
             let ratingHTML = '';
             if (r.rating && r.rating.trim() !== '0' && r.rating.trim() !== '') {
                 ratingHTML = `
@@ -352,10 +351,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.btn-register').classList.add('hidden');
             loginForm.classList.remove('hidden');
             
+            // 💡 [수정] 한글 입력 문제 해결을 위한 최종 시도
             setTimeout(() => {
-                usernameInput.dispatchEvent(new Event('focus', { bubbles: true }));
-                usernameInput.click();
-            }, 200);
+                // 타입을 아주 잠깐 변경했다가 되돌려 입력기를 리셋합니다.
+                usernameInput.setAttribute('type', 'password'); 
+                usernameInput.focus();
+                setTimeout(() => {
+                    usernameInput.setAttribute('type', 'text');
+                    usernameInput.focus();
+                }, 50);
+            }, 100);
         });
     }
     if (loginSubmitBtn) {
