@@ -1,4 +1,4 @@
-// 파일명: www/js/add.js (이 코드로 전체 교체)
+// 파일명: www/js/add.js (전체 코드)
 document.addEventListener('DOMContentLoaded', function () {
     // --- 기본 요소 ---
     const form = document.getElementById('add-restaurant-form');
@@ -17,22 +17,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const duplicateList = document.getElementById('duplicate-list');
     const forceAddBtn = document.getElementById('force-add-btn');
     const cancelAddBtn = document.getElementById('cancel-add-btn');
-
-    // 사진 관련 요소
     const photoInput = document.getElementById('photo-input');
     const thumbnailPreview = document.getElementById('thumbnail-preview');
     const thumbnailImage = document.getElementById('thumbnail-image');
     const removePhotoBtn = document.getElementById('remove-photo-btn');
-
     let currentFormData = null;
-
-    // 💡 [수정] 카카오맵 API가 로드된 후 주소 검색 객체를 초기화
     let geocoder;
+
     kakao.maps.load(function() {
         geocoder = new kakao.maps.services.Geocoder();
     });
     
-    // --- 초기화 ---
     initializeTheme();
 
     // --- 이벤트 리스너 ---
@@ -41,16 +36,13 @@ document.addEventListener('DOMContentLoaded', function () {
     addressSearchInput.addEventListener('keyup', (e) => {
         if (e.key === 'Enter') searchAddress();
     });
-
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         currentFormData = new FormData(form);
         checkDuplicateAndSave();
     });
-
     starsContainer.addEventListener('click', handleStarClick);
     zeroStarBtn.addEventListener('click', resetStars);
-
     forceAddBtn.addEventListener('click', () => {
         if (currentFormData) {
             saveRestaurant(currentFormData, true);
@@ -60,7 +52,6 @@ document.addEventListener('DOMContentLoaded', function () {
     cancelAddBtn.addEventListener('click', () => {
         duplicateModal.classList.add('hidden');
     });
-
     photoInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (file) {
@@ -72,7 +63,6 @@ document.addEventListener('DOMContentLoaded', function () {
             reader.readAsDataURL(file);
         }
     });
-
     removePhotoBtn.addEventListener('click', function() {
         photoInput.value = '';
         thumbnailImage.src = '#';
@@ -101,37 +91,30 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     function searchAddress() {
-        // 💡 [수정] geocoder 객체가 로드되었는지 확인
         if (!geocoder) {
             showToast('지도 API가 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.', false);
             return;
         }
-
         const query = addressSearchInput.value.trim();
         if (!query) {
             showToast('검색할 주소를 입력하세요.', false);
             return;
         }
-
         searchAddressBtn.disabled = true;
         searchAddressBtn.textContent = '검색중...';
         
         const callback = function(result, status) {
             searchAddressBtn.disabled = false;
             searchAddressBtn.textContent = '주소 검색';
-
             if (status === kakao.maps.services.Status.OK) {
                 const addr = result[0];
                 roadAddressInput.value = addr.road_address ? addr.road_address.address_name : '';
                 jibunAddressInput.value = addr.address ? addr.address.address_name : '';
-
                 addressResultsText.innerHTML = `<strong>도로명:</strong> ${roadAddressInput.value || '없음'}<br><strong>지번:</strong> ${jibunAddressInput.value || '없음'}`;
                 addressResultsContainer.classList.remove('hidden');
-
                 if (result.length > 1) {
                     addressResultsText.innerHTML += `<br><small>(${result.length}개의 결과 중 첫 번째 항목 선택됨)</small>`;
                 }
-
             } else {
                 showToast('검색 결과가 없습니다.', false);
                 roadAddressInput.value = '';
@@ -139,7 +122,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 addressResultsContainer.classList.add('hidden');
             }
         };
-
         geocoder.addressSearch(query, callback);
     }
 
@@ -174,18 +156,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (force) {
             formData.append('force', 'true');
         }
-
         const saveBtn = form.querySelector('.btn-save');
         saveBtn.disabled = true;
         saveBtn.textContent = '저장 중...';
-
         try {
             const response = await fetch('api/save_restaurant.php', {
                 method: 'POST',
                 body: formData
             });
             const result = await response.json();
-
             if (result.success) {
                 showToast(result.message, true);
                 setTimeout(() => {
@@ -210,20 +189,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const clickX = e.clientX - rect.left;
             const starWidth = rect.width;
             const isHalf = clickX < starWidth / 2;
-
-            let newRating;
+            let newRating = isHalf ? clickedValue - 0.5 : clickedValue;
             const currentRating = parseFloat(starRatingInput.value);
-
-            if (isHalf) {
-                newRating = clickedValue - 0.5;
-            } else {
-                newRating = clickedValue;
-            }
-
             if (currentRating === newRating) {
                 newRating = 0.0;
             }
-            
             updateStars(newRating);
         }
     }
@@ -235,7 +205,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateStars(rating) {
         starRatingInput.value = rating.toFixed(1);
         currentStarRatingSpan.textContent = `${rating.toFixed(1)} / 5.0`;
-
         const allStars = starsContainer.querySelectorAll('.star');
         allStars.forEach(star => {
             const starValue = parseInt(star.dataset.value);
@@ -262,8 +231,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 3000);
     }
     
+    // 💡 null 또는 undefined 값이 들어와도 오류가 나지 않도록 안전장치 추가
     function escapeHTML(str) {
-        if (!str) return '';
+        if (str === null || str === undefined) {
+            return ''; // str이 null이거나 비어있으면 빈 문자열을 반환
+        }
         return str.toString().replace(/[&<>"']/g, function(tag) {
             const chars = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
             return chars[tag] || tag;

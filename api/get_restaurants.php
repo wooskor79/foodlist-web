@@ -1,73 +1,52 @@
 <?php
-// 파일명: www/api/get_restaurants.php (기존 코드 기반으로 수정)
+// 파일명: www/api/get_restaurants.php (최종 수정본)
 header('Content-Type: application/json');
 session_start();
 require_once 'db_config.php';
 
 $user_id = $_SESSION['user_id'] ?? 0;
 $is_loggedin = $user_id > 0;
-
 $term = $_GET['term'] ?? '';
+
 $params = [];
 $types = '';
 
+// 💡 [수정] 중복 문제가 발생하지 않는 더 안전하고 명확한 쿼리로 변경
+$sql = "
+    SELECT 
+        r.*,
+        u.username AS owner_name,
+        CASE WHEN r.user_id = ? THEN 1 ELSE 0 END AS is_owner,
+        EXISTS (SELECT 1 FROM user_favorites uf WHERE uf.restaurant_id = r.id AND uf.user_id = ?) AS is_favorite
+    FROM restaurants r
+    JOIN users u ON r.user_id = u.id
+";
+
+$where_clauses = [];
 if ($is_loggedin) {
-    // 로그인한 사용자의 경우: 기존 로직에 image_path 필드 추가
-    $base_sql = "
-        SELECT 
-            combined.id, combined.user_id, combined.name, combined.address, combined.jibun_address, combined.detail_address, 
-            combined.food_type, combined.rating, combined.star_rating, combined.image_path, /* 💡 [수정] image_path 추가 */
-            combined.location_dong, combined.location_si, combined.location_gu, combined.location_ri, 
-            combined.is_owner, combined.owner_name,
-            CASE WHEN uf.id IS NOT NULL THEN 1 ELSE 0 END AS is_favorite
-        FROM (
-            (SELECT r.*, 1 AS is_owner, u.username AS owner_name
-             FROM restaurants r
-             JOIN users u ON r.user_id = u.id
-             WHERE r.user_id = ?)
-            UNION
-            (SELECT r.*, 0 AS is_owner, u.username AS owner_name
-             FROM restaurant_shares rs
-             JOIN restaurants r ON rs.restaurant_id = r.id
-             JOIN users u ON rs.owner_user_id = u.id
-             WHERE rs.shared_with_user_id = ?)
-        ) AS combined
-        LEFT JOIN user_favorites uf ON combined.id = uf.restaurant_id AND uf.user_id = ?
-    ";
-    $params = [$user_id, $user_id, $user_id];
-    $types = 'iii';
+    // 로그인 사용자는 (자신이 소유했거나 OR 자신에게 공유된) 가게를 볼 수 있음
+    $where_clauses[] = " (r.user_id = ? OR r.id IN (SELECT restaurant_id FROM restaurant_shares WHERE shared_with_user_id = ?)) ";
+    $params = [$user_id, $user_id, $user_id, $user_id];
+    $types = 'iiii';
 } else {
-    // 로그인하지 않은 사용자의 경우: 기존 로직에 image_path 필드 추가
-    $base_sql = "
-        SELECT 
-            r.id, r.user_id, r.name, r.address, r.jibun_address, r.detail_address, 
-            r.food_type, r.rating, r.star_rating, r.image_path, /* 💡 [수정] image_path 추가 */
-            r.location_dong, r.location_si, r.location_gu, r.location_ri, 
-            0 AS is_owner, u.username AS owner_name, 0 AS is_favorite
-        FROM restaurant_shares rs
-        JOIN restaurants r ON rs.restaurant_id = r.id
-        JOIN users u ON rs.owner_user_id = u.id
-        GROUP BY r.id 
-    ";
+    // 비로그인 사용자는 아무것도 보이지 않음
+    $where_clauses[] = " 1=0 ";
 }
 
-$where_clause = "";
 if (!empty($term) && $term !== '모두' && mb_strlen($term) >= 2) {
-    $where_clause = " WHERE full_text LIKE ?";
-    $searchTerm = "%" . $term . "%";
-    $params[] = $searchTerm;
-    $types .= 's';
+    $where_clauses[] = " (r.name LIKE ? OR r.address LIKE ? OR r.jibun_address LIKE ? OR r.location_dong LIKE ?) ";
+    $term_param = "%" . $term . "%";
+    array_push($params, $term_param, $term_param, $term_param, $term_param);
+    $types .= 'ssss';
 }
 
-$final_sql = "SELECT * FROM ({$base_sql}) AS final_results
-              LEFT JOIN (
-                  SELECT id, CONCAT_WS(' ', name, address, jibun_address, detail_address, location_si, location_gu, location_dong, location_ri) AS full_text
-                  FROM restaurants
-              ) AS search_text ON final_results.id = search_text.id
-              {$where_clause}
-              ORDER BY name";
+if (!empty($where_clauses)) {
+    $sql .= " WHERE " . implode(" AND ", $where_clauses);
+}
 
-$stmt = $conn->prepare($final_sql);
+$sql .= " ORDER BY r.name ASC";
+
+$stmt = $conn->prepare($sql);
 
 if ($stmt) {
     if (!empty($types)) {
@@ -84,7 +63,6 @@ if ($stmt) {
     echo json_encode(['success' => false, 'message' => 'SQL 쿼리 준비에 실패했습니다: ' . $conn->error]);
     exit();
 }
-
 $conn->close();
 
 echo json_encode([
