@@ -4,13 +4,40 @@
 html { font-size: 85%; }
 :root {
     --primary-color: #268fff; --light-gray: #f8f9fa; --gray: #e9ecef; --dark-gray: #6c757d; --success-color: #28a745; --danger-color: #dc3545; --border-radius: 8px; --text-color: #212529; --bg-color: #e8e8e8; --card-bg: #ffffff; --card-border-color: #dee2e6; --input-bg: #ffffff; --input-border-color: #ced4da; --shadow-color: rgba(0,0,0,0.05); --orange-border: #fd7e14;
+    /* 💡 [추가] 상단 안전 영역 변수 추가 */
+    --safe-area-top: env(safe-area-inset-top, 0);
+    /* 💡 [추가] 상단 상태 표시줄 배경색 (밝은 모드) */
+    --status-bar-bg: #6c757d; 
 }
 body.dark-mode {
     --primary-color: #0d6efd; --light-gray: #121212; --gray: #343a40; --dark-gray: #adb5bd; --success-color: #198754; --danger-color: #dc3545; --text-color: #dee2e6; --bg-color: #212529; --card-bg: #2b3035; --card-border-color: #495057; --input-bg: #343a40; --input-border-color: #495057; --shadow-color: rgba(0,0,0,0.2); --orange-border: #ff8c00;
+    /* 💡 [추가] 상단 안전 영역 변수 추가 */
+    --safe-area-top: env(safe-area-inset-top, 0);
+    /* 💡 [추가] 상단 상태 표시줄 배경색 (다크 모드) */
+    --status-bar-bg: #121212; 
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--light-gray); color: var(--text-color); display: flex; justify-content: center; transition: background-color 0.2s, color 0.2s; line-height: 1.4; }
-.container { width: 100%; max-width: 600px; min-height: 100vh; background-color: var(--bg-color); box-shadow: 0 0 10px rgba(0,0,0,0.1); transition: background-color 0.2s; }
+body { 
+    font-family: 'Noto Sans KR', sans-serif; 
+    /* 💡 [수정] body 배경색을 상태 표시줄 배경색으로 변경 (상단 padding 영역에 표시됨) */
+    background-color: var(--status-bar-bg); 
+    color: var(--text-color); 
+    display: flex; 
+    justify-content: center; 
+    transition: background-color 0.2s, color 0.2s; 
+    line-height: 1.4;
+    /* 💡 [유지] safe-area-top을 body에 적용하여 콘텐츠를 아래로 밀어냄 */
+    padding-top: var(--safe-area-top);
+}
+.container { 
+    width: 100%; 
+    max-width: 600px; 
+    min-height: 100vh; 
+    /* 💡 [유지] container의 배경색은 본문 배경색을 사용하여 안전 영역 아래의 본문 색상을 유지 */
+    background-color: var(--bg-color); 
+    box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+    transition: background-color 0.2s;
+}
 header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background-color: var(--primary-color); color: white; }
 .header-left { display: flex; align-items: center; gap: 1rem; }
 header h1 { font-size: 1.25rem; }
