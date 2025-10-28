@@ -138,30 +138,97 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 /* 사진 추가 관련 스타일 */
 .photo-upload-section { margin-bottom: 1rem; }
 .photo-upload-section label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-color); }
-#photo-input { border: 1px dashed var(--input-border-color); padding: 1rem; background-color: var(--gray); text-align: center; cursor: pointer; }
-#thumbnail-preview { position: relative; margin-top: 1rem; max-width: 150px; }
-#thumbnail-image { display: block; width: 100%; height: auto; border-radius: var(--border-radius); border: 1px solid var(--card-border-color); }
-#remove-photo-btn { position: absolute; top: -10px; right: -10px; background-color: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 1.2rem; line-height: 22px; text-align: center; cursor: pointer; font-weight: bold; }
-/* 사진 보기 모달 스타일 */
-#photo-modal .photo-modal-content { position: relative; width: 90%; max-width: 500px; padding: 0; background: none; }
-#photo-modal #modal-image { display: block; width: 100%; max-height: 80vh; object-fit: contain; border-radius: var(--border-radius); }
-#photo-modal .photo-modal-close { position: absolute; top: -10px; right: -5px; color: white; font-size: 2.5rem; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px black; }
-/* 파일명: www/css/style.css */
-/* ... (기존 내용 유지) ... */
 
-/* 💡 [추가] 수정 모드 내 이미지 미리보기 크기 제어 */
-/* .restaurant-card 내부의 photo-upload-section에 대한 스타일 */
+/* 💡 [모바일 파일 선택 클릭 오류 해결을 위한 수정] */
+#photo-input { /* add.php에서 hidden 클래스가 추가되었으므로 이 스타일은 숨겨집니다. */
+    border: 1px dashed var(--input-border-color); padding: 1rem; background-color: var(--gray); text-align: center; cursor: pointer; 
+}
+/* 💡 [추가] 파일 선택 버튼을 감싸는 컨테이너 스타일 */
+#custom-photo-select {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+#custom-photo-select input[type="text"] {
+    flex-grow: 1;
+    margin-bottom: 0 !important;
+}
+#custom-photo-select button {
+    padding: 0 1rem;
+    border: 1px solid var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* 💡 [수정/추가] 이미지 미리보기 크기 제어 및 기존 이미지 크기 제어 */
+#thumbnail-preview { 
+    position: relative; 
+    margin-top: 1rem; 
+    max-width: 150px; /* 미리보기 영역 자체의 최대 너비 제한 */
+}
+#thumbnail-image { 
+    display: block; 
+    width: 100%; 
+    height: auto; 
+    border-radius: var(--border-radius); 
+    border: 1px solid var(--card-border-color); 
+}
+#remove-photo-btn { 
+    position: absolute; 
+    top: -10px; 
+    right: -10px; 
+    background-color: var(--danger-color); 
+    color: white; 
+    border: none; 
+    border-radius: 50%; 
+    width: 24px; 
+    height: 24px; 
+    font-size: 1.2rem; 
+    line-height: 22px; 
+    text-align: center; 
+    cursor: pointer; 
+    font-weight: bold; 
+}
+
+/* 사진 보기 모달 스타일 */
+#photo-modal .photo-modal-content { 
+    position: relative; 
+    width: 90%; 
+    max-width: 500px; 
+    padding: 0; 
+    background: none; 
+}
+#photo-modal #modal-image { 
+    display: block; 
+    width: 100%; 
+    max-height: 80vh; 
+    object-fit: contain; 
+    border-radius: var(--border-radius); 
+}
+#photo-modal .photo-modal-close { 
+    position: absolute; 
+    top: -10px; 
+    right: -5px; 
+    color: white; 
+    font-size: 2.5rem; 
+    font-weight: bold; 
+    cursor: pointer; 
+    text-shadow: 0 0 5px black; 
+}
+
+/* 💡 [추가] 수정 모드 내 이미지 미리보기 크기 제어 (이전 단계 수정 사항) */
+.restaurant-card .photo-upload-section .thumbnail-preview {
+    max-width: 150px;
+}
 .restaurant-card .photo-upload-section #thumbnail-image, 
 .restaurant-card .thumbnail-preview img {
-    /* 이미지가 컨테이너를 벗어나지 않도록 최대 크기 지정 */
     max-width: 100%;
-    max-height: 150px; /* 미리보기 높이 제한 (필요에 따라 조정 가능) */
+    max-height: 150px;
     width: auto;
     height: auto;
     object-fit: contain;
-}
-
-.restaurant-card .thumbnail-preview {
-    max-width: 150px; /* 미리보기 영역 자체의 최대 너비 제한 */
-    /* 기존 thumbnail-preview 스타일을 재정의하여 크기를 제한합니다. */
 }

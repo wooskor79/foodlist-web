@@ -64,14 +64,22 @@ $js_version = filemtime('js/add.js');
                         <input type="hidden" id="star-rating" name="star_rating" value="0.0">
                     </div>
                     <textarea id="rating" name="rating" placeholder="평가 (예: 맛있어요, 친절해요)"></textarea>
+                    
                     <div class="photo-upload-section">
                         <label for="photo-input">사진 추가</label>
-                        <input type="file" id="photo-input" name="photo" accept="image/*">
+                        <input type="file" id="photo-input" name="photo" accept="image/*" class="hidden"> 
+                        
+                        <div id="custom-photo-select" class="address-search-group">
+                            <input type="text" id="photo-file-name" placeholder="파일 선택 (터치하여 열기)" readonly>
+                            <button type="button" id="photo-select-button">파일 선택</button>
+                        </div>
+
                         <div id="thumbnail-preview" class="hidden">
                             <img id="thumbnail-image" src="#" alt="선택한 이미지 썸네일">
                             <button type="button" id="remove-photo-btn">&times;</button>
                         </div>
                     </div>
+                    
                     <button type="submit" class="btn-save">저장</button>
                 </form>
             </div>

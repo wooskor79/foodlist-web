@@ -1,4 +1,4 @@
-// 파일명: www/js/add.js (전체 코드)
+// 파일명: www/js/add.js (수정된 전체 코드)
 document.addEventListener('DOMContentLoaded', function () {
     // --- 기본 요소 ---
     const form = document.getElementById('add-restaurant-form');
@@ -15,18 +15,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const zeroStarBtn = document.querySelector('.btn-zero-star');
     const duplicateModal = document.getElementById('duplicate-modal');
     const duplicateList = document.getElementById('duplicate-list');
-    const forceAddBtn = document.getElementById('force-add-btn');
-    const cancelAddBtn = document.getElementById('cancel-add-btn');
     const photoInput = document.getElementById('photo-input');
     const thumbnailPreview = document.getElementById('thumbnail-preview');
     const thumbnailImage = document.getElementById('thumbnail-image');
     const removePhotoBtn = document.getElementById('remove-photo-btn');
+    
+    // 💡 [추가] 파일 선택 커스텀 버튼 관련 요소
+    const customPhotoSelect = document.getElementById('custom-photo-select');
+    const photoSelectButton = document.getElementById('photo-select-button');
+    const photoFileNameInput = document.getElementById('photo-file-name');
+    
     let currentFormData = null;
     let geocoder;
 
-    kakao.maps.load(function() {
-        geocoder = new kakao.maps.services.Geocoder();
-    });
+    // 카카오 맵 로딩 확인
+    if (typeof kakao !== 'undefined' && kakao.maps) {
+        kakao.maps.load(function() {
+            geocoder = new kakao.maps.services.Geocoder();
+        });
+    }
     
     initializeTheme();
 
@@ -43,31 +50,62 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     starsContainer.addEventListener('click', handleStarClick);
     zeroStarBtn.addEventListener('click', resetStars);
-    forceAddBtn.addEventListener('click', () => {
-        if (currentFormData) {
-            saveRestaurant(currentFormData, true);
-        }
-        duplicateModal.classList.add('hidden');
-    });
-    cancelAddBtn.addEventListener('click', () => {
-        duplicateModal.classList.add('hidden');
-    });
+    
+    // 💡 [추가] 커스텀 파일 선택 버튼 동작 정의
+    if (photoSelectButton) {
+        photoSelectButton.addEventListener('click', () => {
+            photoInput.click();
+        });
+    }
+
+    // 💡 [추가] 파일 선택 시 파일 이름 업데이트
     photoInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (file) {
+            // 1. 파일 이름 업데이트
+            if (photoFileNameInput) {
+                photoFileNameInput.value = file.name;
+            }
+
+            // 2. 썸네일 미리보기 로직 (기존 로직)
             const reader = new FileReader();
             reader.onload = function(e) {
                 thumbnailImage.src = e.target.result;
                 thumbnailPreview.classList.remove('hidden');
             }
             reader.readAsDataURL(file);
+        } else {
+             if (photoFileNameInput) {
+                photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+            }
         }
     });
+
     removePhotoBtn.addEventListener('click', function() {
         photoInput.value = '';
+        if (photoFileNameInput) {
+            photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+        }
         thumbnailImage.src = '#';
         thumbnailPreview.classList.add('hidden');
     });
+    
+    // 모달 관련 이벤트 리스너 (forceAddBtn, cancelAddBtn 등은 기존 코드에 있는 것으로 가정)
+    const forceAddBtn = document.getElementById('force-add-btn');
+    const cancelAddBtn = document.getElementById('cancel-add-btn');
+    if (forceAddBtn) {
+        forceAddBtn.addEventListener('click', () => {
+            if (currentFormData) {
+                saveRestaurant(currentFormData, true);
+            }
+            duplicateModal.classList.add('hidden');
+        });
+    }
+    if (cancelAddBtn) {
+        cancelAddBtn.addEventListener('click', () => {
+            duplicateModal.classList.add('hidden');
+        });
+    }
 
     // --- 함수 ---
     function initializeTheme() {
