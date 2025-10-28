@@ -70,8 +70,29 @@ $js_version = filemtime('js/main.js');
         </main>
     </div>
     <div id="toast-container"></div>
-    <div id="share-modal" class="modal-overlay hidden"> </div>
-    <div id="photo-modal" class="modal-overlay hidden"> </div>
+    
+    <div id="share-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>'<span id="share-restaurant-name"></span>' 공유하기</h2>
+            <form id="share-form">
+                <input type="hidden" id="share-restaurant-id" name="restaurant_id" value="">
+                <p>공유할 사용자를 선택하세요. (기존 공유 사용자는 재선택해야 유지됩니다)</p>
+                <div id="share-user-list"></div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-share" id="share-submit-btn">공유</button>
+                    <button type="button" class="btn-cancel" id="close-share-modal-btn">취소</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="photo-modal" class="modal-overlay hidden">
+        <div class="photo-modal-content">
+            <span class="photo-modal-close" id="close-photo-modal-btn">&times;</span>
+            <img id="modal-image" src="#" alt="맛집 사진">
+        </div>
+    </div>
+    
     <script src="js/main.js?v=<?php echo $js_version; ?>"></script>
 </body>
 </html>
