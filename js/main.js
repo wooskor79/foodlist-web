@@ -1,4 +1,4 @@
-// 파일명: www/js/main.js (현위치 기능 제거된 최종본)
+// 파일명: www/js/main.js (기존 맛집 수정 시 사진 추가/교체 기능 추가)
 document.addEventListener('DOMContentLoaded', () => {
     // --- 기본 요소 ---
     const searchInput = document.getElementById('dong-search-input');
@@ -45,11 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
     sortDropdown.addEventListener('change', handleSortChange);
     
     document.addEventListener('click', (e) => {
-        if (shareModal && !shareModal.querySelector('.modal-content').contains(e.target) && !e.target.classList.contains('btn-share')) {
-             if (!shareModal.classList.contains('hidden')) closeShareModal();
+        if (shareModal && shareModal.classList.contains('hidden') === false) {
+             const modalContent = shareModal.querySelector('.modal-content');
+             if (modalContent && !modalContent.contains(e.target) && !e.target.classList.contains('btn-share')) {
+                 closeShareModal();
+             }
         }
-        if (photoModal && !photoModal.querySelector('.photo-modal-content').contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
-            if (!photoModal.classList.contains('hidden')) closePhotoModal();
+        if (photoModal && photoModal.classList.contains('hidden') === false) {
+            const modalContent = photoModal.querySelector('.photo-modal-content');
+            if (modalContent && !modalContent.contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
+                closePhotoModal();
+            }
         }
         if (searchResults && !searchResults.contains(e.target) && e.target !== searchInput) {
             searchResults.style.display = 'none';
@@ -411,67 +417,133 @@ document.addEventListener('DOMContentLoaded', () => {
         const restaurantData = allRestaurants.find(r => r.id == id);
         const currentStarRating = parseFloat(card.dataset.starRating);
         const favoriteBtn = card.querySelector('.btn-favorite')?.outerHTML || '';
-        
+        const currentImagePath = card.dataset.imagePath;
+
         card.querySelector('.info-group').innerHTML = `
-            <p class="info-item"><strong>도로명:</strong><textarea class="address-edit-area">${restaurantData.address}</textarea></p>
-            <p class="info-item"><strong>지번:</strong><textarea class="jibun-edit-area">${restaurantData.jibun_address || ''}</textarea></p>
-            <p class="info-item"><strong>상세:</strong><textarea class="detail-edit-area">${restaurantData.detail_address || ''}</textarea></p>
-            <p class="info-item"><strong>음식:</strong> ${card.dataset.foodType}</p>`;
+            <form class="edit-form" enctype="multipart/form-data">
+                <input type="hidden" name="id" value="${id}">
+                <p class="info-item"><strong>도로명:</strong><textarea class="address-edit-area" name="address">${restaurantData.address}</textarea></p>
+                <p class="info-item"><strong>지번:</strong><textarea class="jibun-edit-area" name="jibun_address">${restaurantData.jibun_address || ''}</textarea></p>
+                <p class="info-item"><strong>상세:</strong><textarea class="detail-edit-area" name="detail_address">${restaurantData.detail_address || ''}</textarea></p>
+                <p class="info-item"><strong>음식:</strong> ${card.dataset.foodType}</p>
+                <div class="photo-upload-section">
+                    <label for="photo-input-${id}">사진 교체/추가</label>
+                    <input type="file" id="photo-input-${id}" name="photo" accept="image/*">
+                    <div id="thumbnail-preview-${id}" class="thumbnail-preview ${currentImagePath ? '' : 'hidden'}">
+                        <img id="thumbnail-image-${id}" src="${currentImagePath ? 'images/thumb/' + currentImagePath : '#'}" alt="현재/선택 이미지 썸네일">
+                        <button type="button" class="remove-photo-btn" data-id="${id}">&times;</button>
+                        <input type="hidden" name="current_image_path" value="${currentImagePath || ''}">
+                        <input type="hidden" name="remove_photo" value="0">
+                    </div>
+                </div>
+            </form>`;
         
         const ratingContent = card.querySelector('.rating');
+        const ratingArea = `<div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area" name="rating">${restaurantData.rating || ''}</textarea></div>`;
         if (ratingContent) {
-             ratingContent.innerHTML = `<div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area">${restaurantData.rating}</textarea></div>`;
+             ratingContent.innerHTML = ratingArea;
         } else {
-             card.querySelector('.info-group').insertAdjacentHTML('afterend', `<div class="rating"><div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area"></textarea></div></div>`);
+             card.querySelector('.info-group').insertAdjacentHTML('afterend', `<div class="rating">${ratingArea}</div>`);
         }
 
         const starDisplay = card.querySelector('.star-display');
         starDisplay.innerHTML = `
             <div class="star-rating-input">
                 <div class="star-input-group">
-                    <div class="stars edit-mode">${[1,2,3,4,5].map(v => `<span class="star" data-value="${v}">★</span>`).join('')}</div>
-                    <button type="button" class="btn-zero-star-edit">별 0개</button>
+                    <div class="stars edit-mode star-container-${id}">${[1,2,3,4,5].map(v => `<span class="star" data-value="${v}">★</span>`).join('')}</div>
+                    <button type="button" class="btn-zero-star-edit" data-id="${id}">별 0개</button>
                 </div>
-                <input type="hidden" class="star-rating-edit-value" value="${currentStarRating}">
+                <input type="hidden" class="star-rating-edit-value" name="star_rating" value="${currentStarRating}">
             </div>`;
         updateEditStars(starDisplay, currentStarRating);
 
         card.querySelector('.card-actions').innerHTML = `${favoriteBtn}<button class="btn-share">공유</button> <button class="btn-save-edit">저장</button><button class="btn-cancel-edit">취소</button>`;
-
-        starDisplay.querySelector('.stars.edit-mode').addEventListener('click', handleStarEditClick);
-        starDisplay.querySelector('.btn-zero-star-edit').addEventListener('click', handleStarEditClick);
+        
+        // 새로운 이벤트 리스너 연결
+        const photoInput = document.getElementById(`photo-input-${id}`);
+        const removePhotoBtn = card.querySelector('.remove-photo-btn');
+        const thumbnailImage = document.getElementById(`thumbnail-image-${id}`);
+        const thumbnailPreview = document.getElementById(`thumbnail-preview-${id}`);
+        const removePhotoHiddenInput = card.querySelector('input[name="remove_photo"]');
+        const starContainer = card.querySelector(`.star-container-${id}`);
+        const zeroStarBtn = card.querySelector(`.btn-zero-star-edit`);
+        
+        if (starContainer) starContainer.addEventListener('click', handleStarEditClick);
+        if (zeroStarBtn) zeroStarBtn.addEventListener('click', handleStarEditClick);
+        
+        if (photoInput) {
+            photoInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        thumbnailImage.src = e.target.result;
+                        thumbnailPreview.classList.remove('hidden');
+                        removePhotoHiddenInput.value = '0'; // 새 파일 선택 시 제거 플래그 해제
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        if (removePhotoBtn) {
+            removePhotoBtn.addEventListener('click', function() {
+                photoInput.value = '';
+                thumbnailImage.src = '#';
+                thumbnailPreview.classList.add('hidden');
+                removePhotoHiddenInput.value = '1'; // 사진 제거 플래그 설정
+            });
+        }
     }
     
     function handleStarEditClick(e) {
-        const starContainer = e.target.closest('.star-rating-input');
-        const ratingInput = starContainer.querySelector('.star-rating-edit-value');
-        let currentRating = parseFloat(ratingInput.value);
+        const starContainerElement = e.target.closest('.star-rating-input');
+        if (!starContainerElement) return;
+
+        const ratingInput = starContainerElement.querySelector('.star-rating-edit-value');
+        const starsContainer = starContainerElement.querySelector('.stars.edit-mode');
+        let newRating = parseFloat(ratingInput.value);
 
         if (e.target.classList.contains('btn-zero-star-edit')) {
-            currentRating = 0.0;
+            newRating = 0.0;
         } else if (e.target.classList.contains('star')) {
             const clickedValue = parseInt(e.target.dataset.value);
             const rect = e.target.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const starWidth = rect.width;
             const isHalf = clickX < starWidth / 2;
-            currentRating = isHalf ? clickedValue - 0.5 : clickedValue;
+            newRating = isHalf ? clickedValue - 0.5 : clickedValue;
+            
+            if (parseFloat(ratingInput.value) === newRating) {
+                newRating = 0.0;
+            }
         }
-        ratingInput.value = currentRating;
-        updateEditStars(starContainer, currentRating);
+        ratingInput.value = newRating.toFixed(1);
+        updateEditStars(starContainerElement, newRating);
     }
     
     async function saveRestaurantEdit(card) {
-        const id = card.dataset.id;
-        const updatedData = {
-            id: id,
-            address: card.querySelector('.address-edit-area').value,
-            jibun_address: card.querySelector('.jibun-edit-area').value,
-            detail_address: card.querySelector('.detail-edit-area').value,
-            rating: card.querySelector('.rating-edit-area')?.value || '',
-            star_rating: card.querySelector('.star-rating-edit-value').value
-        };
-        await updateRestaurant(updatedData);
+        const editForm = card.querySelector('.edit-form');
+        if (!editForm) return;
+
+        const formData = new FormData(editForm);
+        
+        const ratingInput = card.querySelector('.rating-edit-area');
+        if (ratingInput) {
+             formData.append('rating', ratingInput.value);
+        }
+        
+        // FormData에 textarea 값들을 수동으로 추가 (form으로 바로 얻어오지 않는 경우)
+        // Hidden input으로 변경하여 formData에 포함되도록 수정되었으므로, 별도 추가 로직 제거
+
+        const saveBtn = card.querySelector('.btn-save-edit');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '저장 중...';
+
+        await updateRestaurant(formData);
+
+        saveBtn.disabled = false;
+        saveBtn.textContent = '저장';
     }
 
     async function openShareModal(id, name) {
@@ -483,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('api/get_users.php');
             const result = await response.json();
-            if (result.success) { renderUserList(result.data); } 
+            if (result.success) { renderUserList(result.data, id); } 
             else { shareUserList.innerHTML = `<p class="placeholder">${result.message}</p>`; }
         } catch (error) { shareUserList.innerHTML = `<p class="placeholder">사용자 목록 로딩 실패</p>`; }
     }
@@ -500,18 +572,33 @@ document.addEventListener('DOMContentLoaded', () => {
         modalImage.src = '';
     }
 
-    function renderUserList(users) {
+    async function renderUserList(users, restaurantId) {
         if (users.length === 0) {
             shareUserList.innerHTML = '<p class="placeholder">공유할 다른 사용자가 없습니다.</p>';
             return;
         }
-        shareUserList.innerHTML = '';
+
+        // 기존 공유 상태 불러오기 (새로운 API 엔드포인트 필요)
+        let sharedUsers = [];
+        try {
+            const response = await fetch(`api/get_shared_users.php?restaurant_id=${restaurantId}`);
+            const result = await response.json();
+            if (result.success) {
+                sharedUsers = result.data.map(user => user.shared_with_user_id);
+            }
+        } catch (e) {
+            console.error("공유 사용자 목록을 불러오는 데 실패했습니다.", e);
+        }
+
+        let listHtml = '';
         users.forEach(user => {
-            const item = document.createElement('div');
-            item.className = 'share-user-item';
-            item.innerHTML = `<input type="checkbox" id="user-${user.id}" name="share_with_ids[]" value="${user.id}"><label for="user-${user.id}">${escapeHTML(user.username)}</label>`;
-            shareUserList.appendChild(item);
+            const isChecked = sharedUsers.includes(parseInt(user.id)) ? 'checked' : '';
+            listHtml += `<div class="share-user-item">
+                            <input type="checkbox" id="user-${user.id}" name="share_with_ids[]" value="${user.id}" ${isChecked}>
+                            <label for="user-${user.id}">${escapeHTML(user.username)}</label>
+                         </div>`;
         });
+        shareUserList.innerHTML = listHtml;
     }
 
     if (shareForm) {
@@ -539,6 +626,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeShareModal() {
         if (!shareModal) return;
         shareModal.classList.add('hidden');
+        // 모달 닫을 때 목록 초기화
+        shareRestaurantId.value = '';
+        shareRestaurantName.textContent = '';
+        shareUserList.innerHTML = '';
     }
 
     async function toggleFavorite(id, button) {
@@ -592,9 +683,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { console.error('Error unsharing:', error); }
     }
 
-    async function updateRestaurant(data) {
-        const formData = new FormData();
-        for (const key in data) { formData.append(key, data[key]); }
+    async function updateRestaurant(formData) {
+        // [수정] 파일 업로드를 위해 form을 직접 전달
         try {
             const response = await fetch('api/update_restaurant.php', { method: 'POST', body: formData });
             const result = await response.json();
@@ -602,11 +692,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 fetchRestaurants(searchInput.value || '모두');
             }
-        } catch (error) { console.error('Error updating:', error); }
+        } catch (error) { 
+            console.error('Error updating:', error);
+            showToast('맛집을 수정하는 데 실패했습니다.', false);
+        }
     }
 
     function updateEditStars(container, rating) {
-        const stars = container.querySelectorAll('.star');
+        const starsContainer = container.querySelector('.stars.edit-mode');
+        const stars = starsContainer.querySelectorAll('.star');
         stars.forEach(star => {
             const starValue = parseInt(star.dataset.value);
             star.classList.remove('filled', 'half');

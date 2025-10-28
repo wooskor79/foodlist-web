@@ -146,3 +146,22 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 #photo-modal .photo-modal-content { position: relative; width: 90%; max-width: 500px; padding: 0; background: none; }
 #photo-modal #modal-image { display: block; width: 100%; max-height: 80vh; object-fit: contain; border-radius: var(--border-radius); }
 #photo-modal .photo-modal-close { position: absolute; top: -10px; right: -5px; color: white; font-size: 2.5rem; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px black; }
+/* 파일명: www/css/style.css */
+/* ... (기존 내용 유지) ... */
+
+/* 💡 [추가] 수정 모드 내 이미지 미리보기 크기 제어 */
+/* .restaurant-card 내부의 photo-upload-section에 대한 스타일 */
+.restaurant-card .photo-upload-section #thumbnail-image, 
+.restaurant-card .thumbnail-preview img {
+    /* 이미지가 컨테이너를 벗어나지 않도록 최대 크기 지정 */
+    max-width: 100%;
+    max-height: 150px; /* 미리보기 높이 제한 (필요에 따라 조정 가능) */
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.restaurant-card .thumbnail-preview {
+    max-width: 150px; /* 미리보기 영역 자체의 최대 너비 제한 */
+    /* 기존 thumbnail-preview 스타일을 재정의하여 크기를 제한합니다. */
+}
