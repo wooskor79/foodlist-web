@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 파일 선택 커스텀 UI 요소
     const photoFileNameInput = document.getElementById('photo-file-name');
     const photoSelectButton = document.getElementById('photo-select-button');
+    const customFileWrapper = document.getElementById('custom-file-wrapper'); // wrapper 요소 가져오기
     
     let currentFormData = null;
     let geocoder;
@@ -67,45 +68,57 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 💡 [추가] 커스텀 버튼 클릭 시 이벤트 전파 방지 (오버레이가 이벤트를 받기 위함)
-    if (photoSelectButton) {
-        photoSelectButton.addEventListener('click', (e) => {
-            e.preventDefault(); 
+    // 💡 [제거] photoSelectButton 클릭 이벤트 로직 제거 (CSS 오버레이로 대체했음)
+    // if (photoSelectButton) {
+    //     photoSelectButton.addEventListener('click', (e) => {
+    //         e.preventDefault(); 
+    //     });
+    // }
+
+    // 💡 [수정] 파일 입력 필드 변경 시 로직: 파일 선택 취소 시 처리 로직 개선
+    if (photoInput) {
+        photoInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // 1. 파일 이름 업데이트 (파일 선택 시)
+                if (photoFileNameInput) {
+                    photoFileNameInput.value = file.name;
+                }
+    
+                // 2. 썸네일 미리보기 로직
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    thumbnailImage.src = e.target.result;
+                    thumbnailPreview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                 // 💡 [수정] 파일 선택 취소 시: 파일 이름만 초기화
+                 if (photoFileNameInput) {
+                    photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+                 }
+                 // **주의**: 취소해도 기존 썸네일은 남아있어야 함 (새 파일 업로드 창에서 취소한 것이므로)
+            }
         });
     }
 
-    // 💡 [수정] 파일 입력 필드 변경 시 로직 (오버레이 클릭 후 change 이벤트 발생)
-    photoInput.addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        if (file) {
-            // 1. 파일 이름 업데이트
-            if (photoFileNameInput) {
-                photoFileNameInput.value = file.name;
-            }
 
-            // 2. 썸네일 미리보기 로직
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                thumbnailImage.src = e.target.result;
-                thumbnailPreview.classList.remove('hidden');
+    if (removePhotoBtn) {
+        removePhotoBtn.addEventListener('click', function() {
+            if (photoInput) {
+                 photoInput.value = '';
             }
-            reader.readAsDataURL(file);
-        } else {
-             // 파일 선택 취소 시
-             if (photoFileNameInput) {
+            if (photoFileNameInput) {
                 photoFileNameInput.value = '파일 선택 (터치하여 열기)';
             }
-        }
-    });
-
-    removePhotoBtn.addEventListener('click', function() {
-        photoInput.value = '';
-        if (photoFileNameInput) {
-            photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-        }
-        thumbnailImage.src = '#';
-        thumbnailPreview.classList.add('hidden');
-    });
+            if (thumbnailImage) {
+                thumbnailImage.src = '#';
+            }
+            if (thumbnailPreview) {
+                thumbnailPreview.classList.add('hidden');
+            }
+        });
+    }
 
     // --- 함수 ---
     function initializeTheme() {
@@ -114,6 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.body.classList.add('dark-mode');
                 themeToggleBtn.textContent = '☀️';
             } else {
+                document.body.classList.remove('dark-mode');
                 themeToggleBtn.textContent = '🌙';
             }
         } catch (e) { console.error("테마 로딩 실패:", e); }

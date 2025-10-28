@@ -141,16 +141,20 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 .photo-upload-section { margin-bottom: 1rem; }
 .photo-upload-section label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-color); }
 
-/* 💡 [모바일 클릭 최종 수정] 투명 오버레이로 실제 input 클릭 유도 */
+/* 💡 [수정] 모바일 클릭 이슈 해결: 실제 input이 버튼 영역을 덮도록 설정 */
 .file-overlay-input {
     /* 실제 클릭 이벤트를 받을 투명한 input */
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
+    /* 래퍼의 높이/너비를 꽉 채우도록 설정 */
+    width: 100%; 
     height: 100%;
+    /* 투명하게 만듭니다. */
     opacity: 0; 
+    /* 파일 선택 다이얼로그가 뜨도록 허용합니다. */
     cursor: pointer;
+    /* 래퍼 내에서 가장 위에 오도록 합니다. */
     z-index: 10; 
 }
 
@@ -160,16 +164,17 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1rem;
+    /* 높이를 명시하여 input[type="file"]이 덮을 영역을 정의 */
     height: 48px; 
 }
 
 #custom-file-wrapper input[type="text"], .custom-file-wrapper input[type="text"] {
-    /* 파일명 표시 input: 클릭 방지 */
+    /* 파일명 표시 input: z-index가 낮아 클릭이 방지됨 (file-overlay-input이 z-index: 10) */
     pointer-events: none;
     height: 100%;
 }
 #custom-file-wrapper button, .custom-file-wrapper button {
-    /* 커스텀 버튼: 클릭 방지 */
+    /* 커스텀 버튼: z-index가 낮아 클릭이 방지됨 (file-overlay-input이 z-index: 10) */
     pointer-events: none;
     z-index: 2; 
     

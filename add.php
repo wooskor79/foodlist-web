@@ -69,7 +69,8 @@ $js_version = filemtime('js/add.js');
                     <div class="photo-upload-section">
                         <label for="photo-input">사진 추가</label>
                         
-                        <div id="custom-file-wrapper" class="address-search-group">
+                        <!-- 💡 [수정] id="custom-file-wrapper"를 추가하여 JS에서 이 요소를 클릭 이벤트 리스너의 대상으로 지정합니다. -->
+                        <div id="custom-file-wrapper" class="custom-file-wrapper">
                             <input type="text" id="photo-file-name" placeholder="파일 선택 (터치하여 열기)" readonly>
                             
                             <input type="file" id="photo-input" name="photo" accept="image/*" class="file-overlay-input"> 

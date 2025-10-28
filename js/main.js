@@ -413,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const favoriteBtn = card.querySelector('.btn-favorite')?.outerHTML || '';
         const currentImagePath = card.dataset.imagePath;
         const inputId = `photo-input-${id}`; // 고유 ID
+        const wrapperId = `custom-file-wrapper-${id}`; // wrapper ID 정의
 
         card.querySelector('.info-group').innerHTML = `
             <form class="edit-form" enctype="multipart/form-data">
@@ -425,7 +426,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="photo-upload-section">
                     <label for="${inputId}">사진 교체/추가</label>
                     
-                    <div class="custom-file-wrapper" id="custom-file-wrapper-${id}">
+                    <!-- 💡 [수정] custom-file-wrapper를 사용하고 z-index: 10인 file-overlay-input이 클릭을 받도록 처리 -->
+                    <div class="custom-file-wrapper" id="${wrapperId}">
                         <input type="text" id="photo-file-name-${id}" placeholder="파일 선택 (터치하여 열기)" readonly>
                         
                         <input type="file" id="${inputId}" name="photo" accept="image/*" class="file-overlay-input"> 
@@ -473,10 +475,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const starContainer = card.querySelector(`.star-container-${id}`);
         const zeroStarBtn = card.querySelector(`.btn-zero-star-edit`);
         
-        if (starContainer) starContainer.addEventListener('click', handleStarEditClick);
-        if (zeroStarBtn) zeroStarBtn.addEventListener('click', handleStarEditClick);
-        
-        // 💡 [수정] photoSelectButton 클릭 이벤트 로직 제거 (오버레이 CSS로 클릭 이벤트가 photoInput으로 직접 전달됨)
+        // 💡 [수정] 불필요한 .click() 로직 제거. CSS가 파일 입력 필드의 클릭을 직접 처리하도록 함
+        const customFileWrapper = document.getElementById(wrapperId);
+        // if (customFileWrapper && photoInput) {
+        //     customFileWrapper.addEventListener('click', (e) => {
+        //         if (e.target !== photoInput) {
+        //             photoInput.click();
+        //         }
+        //     });
+        // }
+        // 💡 [제거] photoSelectButton 클릭 이벤트 로직 제거 (CSS 오버레이로 대체)
         const photoSelectButton = card.querySelector('.photo-select-button');
         if (photoSelectButton) {
              photoSelectButton.addEventListener('click', (e) => {
@@ -485,6 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
+        if (starContainer) starContainer.addEventListener('click', handleStarEditClick);
+        if (zeroStarBtn) zeroStarBtn.addEventListener('click', handleStarEditClick);
+        
+        // 💡 [수정] photoInput 변경 이벤트 리스너 (실제 파일 선택 시)
         if (photoInput) {
             photoInput.addEventListener('change', function(event) {
                 const file = event.target.files[0];
@@ -497,9 +509,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 2. 썸네일 미리보기 로직
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        thumbnailImage.src = e.target.result;
-                        thumbnailPreview.classList.remove('hidden');
-                        removePhotoHiddenInput.value = '0'; // 새 파일 선택 시 제거 플래그 해제
+                        if (thumbnailImage) thumbnailImage.src = e.target.result;
+                        if (thumbnailPreview) thumbnailPreview.classList.remove('hidden');
+                        if (removePhotoHiddenInput) removePhotoHiddenInput.value = '0'; // 새 파일 선택 시 제거 플래그 해제
                     }
                     reader.readAsDataURL(file);
                 } else {
@@ -507,19 +519,18 @@ document.addEventListener('DOMContentLoaded', () => {
                      if (photoFileNameInput) {
                         photoFileNameInput.value = '파일 선택 (터치하여 열기)';
                     }
+                     // *주의: 파일 선택 취소 시 기존 이미지 유무에 따라 미리보기 상태는 유지됨*
                 }
             });
         }
         
         if (removePhotoBtn) {
             removePhotoBtn.addEventListener('click', function() {
-                photoInput.value = '';
-                 if (photoFileNameInput) {
-                    photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-                }
-                thumbnailImage.src = '#';
-                thumbnailPreview.classList.add('hidden');
-                removePhotoHiddenInput.value = '1'; // 사진 제거 플래그 설정
+                if (photoInput) photoInput.value = '';
+                if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+                if (thumbnailImage) thumbnailImage.src = '#';
+                if (thumbnailPreview) thumbnailPreview.classList.add('hidden');
+                if (removePhotoHiddenInput) removePhotoHiddenInput.value = '1'; // 사진 제거 플래그 설정
             });
         }
     }
