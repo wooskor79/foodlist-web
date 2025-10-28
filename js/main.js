@@ -406,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 💡 [수정] 이 함수를 전체 수정하여 모든 입력 필드가 하나의 폼에 포함되도록 합니다.
     function editRestaurant(card) {
         const id = card.dataset.id;
         const restaurantData = allRestaurants.find(r => r.id == id);
@@ -415,18 +416,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputId = `photo-input-${id}`; // 고유 ID
         const wrapperId = `custom-file-wrapper-${id}`; // wrapper ID 정의
 
-        card.querySelector('.info-group').innerHTML = `
+        // **새로운 편집 폼 HTML 생성 및 삽입**
+        // 모든 입력 필드와 숨겨진 필드를 하나의 form 태그 안에 포함합니다.
+        
+        const formHtml = `
             <form class="edit-form" enctype="multipart/form-data">
                 <input type="hidden" name="id" value="${id}">
-                <p class="info-item"><strong>도로명:</strong><textarea class="address-edit-area" name="address">${restaurantData.address}</textarea></p>
-                <p class="info-item"><strong>지번:</strong><textarea class="jibun-edit-area" name="jibun_address">${restaurantData.jibun_address || ''}</textarea></p>
-                <p class="info-item"><strong>상세:</strong><textarea class="detail-edit-area" name="detail_address">${restaurantData.detail_address || ''}</textarea></p>
-                <p class="info-item"><strong>음식:</strong> ${card.dataset.foodType}</p>
+                <input type="hidden" name="food_type" value="${restaurantData.food_type}"> <h2>맛집 정보 수정</h2>
+
+                <div class="info-group">
+                    <p class="info-item"><strong>도로명:</strong><textarea class="address-edit-area" name="address">${escapeHTML(restaurantData.address)}</textarea></p>
+                    <p class="info-item"><strong>지번:</strong><textarea class="jibun-edit-area" name="jibun_address">${escapeHTML(restaurantData.jibun_address || '')}</textarea></p>
+                    <p class="info-item"><strong>상세:</strong><textarea class="detail-edit-area" name="detail_address" placeholder="상세 주소">${escapeHTML(restaurantData.detail_address || '')}</textarea></p>
+                    <p class="info-item"><strong>음식:</strong> ${escapeHTML(restaurantData.food_type)}</p>
+                </div>
+
+                <div class="rating">
+                    <div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area" name="rating" placeholder="평가 (예: 맛있어요, 친절해요)">${escapeHTML(restaurantData.rating || '')}</textarea></div>
+                </div>
+
+                <div class="star-rating-input" id="star-rating-input-${id}">
+                    <label for="star-rating-${id}">별점</label>
+                    <p class="star-instruction">별을 터치하여 0.5점 단위로 선택하세요.</p>
+                    <div class="star-input-group">
+                        <div class="stars edit-mode star-container-${id}">${[1,2,3,4,5].map(v => `<span class="star" data-value="${v}">★</span>`).join('')}</div>
+                        <button type="button" class="btn-zero-star-edit" data-id="${id}">별 0개</button>
+                    </div>
+                    <input type="hidden" class="star-rating-edit-value" name="star_rating" value="${currentStarRating}">
+                </div>
                 
                 <div class="photo-upload-section">
                     <label for="${inputId}">사진 교체/추가</label>
                     
-                    <!-- 💡 [수정] custom-file-wrapper를 사용하고 z-index: 10인 file-overlay-input이 클릭을 받도록 처리 -->
                     <div class="custom-file-wrapper" id="${wrapperId}">
                         <input type="text" id="photo-file-name-${id}" placeholder="파일 선택 (터치하여 열기)" readonly>
                         
@@ -442,30 +463,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="hidden" name="remove_photo" value="0">
                     </div>
                 </div>
-            </form>`;
+            </form>
+        `;
         
-        const ratingContent = card.querySelector('.rating');
-        const ratingArea = `<div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area" name="rating">${restaurantData.rating || ''}</textarea></div>`;
-        if (ratingContent) {
-             ratingContent.innerHTML = ratingArea;
-        } else {
-             card.querySelector('.info-group').insertAdjacentHTML('afterend', `<div class="rating">${ratingArea}</div>`);
-        }
-
-        const starDisplay = card.querySelector('.star-display');
-        starDisplay.innerHTML = `
-            <div class="star-rating-input">
-                <div class="star-input-group">
-                    <div class="stars edit-mode star-container-${id}">${[1,2,3,4,5].map(v => `<span class="star" data-value="${v}">★</span>`).join('')}</div>
-                    <button type="button" class="btn-zero-star-edit" data-id="${id}">별 0개</button>
-                </div>
-                <input type="hidden" class="star-rating-edit-value" name="star_rating" value="${currentStarRating}">
-            </div>`;
-        updateEditStars(starDisplay, currentStarRating);
-
-        card.querySelector('.card-actions').innerHTML = `${favoriteBtn}<button class="btn-share">공유</button> <button class="btn-save-edit">저장</button><button class="btn-cancel-edit">취소</button>`;
+        // 기존 카드 내부의 모든 요소를 제거하고 새 편집 폼을 삽입
+        const cardHeader = card.querySelector('.card-header').outerHTML;
+        card.innerHTML = cardHeader + formHtml; 
         
-        // 새로운 이벤트 리스너 연결
+        // 액션 버튼 영역 재구성 (폼 외부에 유지)
+        card.insertAdjacentHTML('beforeend', `<div class="card-actions">${favoriteBtn}<button class="btn-share">공유</button> <button class="btn-save-edit">저장</button><button class="btn-cancel-edit">취소</button></div>`);
+
+
+        // --- 이벤트 리스너 재연결 ---
         const photoInput = document.getElementById(inputId);
         const photoFileNameInput = document.getElementById(`photo-file-name-${id}`);
         const removePhotoBtn = card.querySelector('.remove-photo-btn');
@@ -474,52 +483,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const removePhotoHiddenInput = card.querySelector('input[name="remove_photo"]');
         const starContainer = card.querySelector(`.star-container-${id}`);
         const zeroStarBtn = card.querySelector(`.btn-zero-star-edit`);
-        
-        // 💡 [수정] 불필요한 .click() 로직 제거. CSS가 파일 입력 필드의 클릭을 직접 처리하도록 함
-        const customFileWrapper = document.getElementById(wrapperId);
-        // if (customFileWrapper && photoInput) {
-        //     customFileWrapper.addEventListener('click', (e) => {
-        //         if (e.target !== photoInput) {
-        //             photoInput.click();
-        //         }
-        //     });
-        // }
-        // 💡 [제거] photoSelectButton 클릭 이벤트 로직 제거 (CSS 오버레이로 대체)
-        const photoSelectButton = card.querySelector('.photo-select-button');
-        if (photoSelectButton) {
-             photoSelectButton.addEventListener('click', (e) => {
-                 e.preventDefault(); 
-             });
-        }
+        const starRatingInputContainer = document.getElementById(`star-rating-input-${id}`); // 상위 컨테이너
 
-
+        // 별점 초기 상태 업데이트 및 이벤트 연결
         if (starContainer) starContainer.addEventListener('click', handleStarEditClick);
         if (zeroStarBtn) zeroStarBtn.addEventListener('click', handleStarEditClick);
-        
-        // 💡 [수정] photoInput 변경 이벤트 리스너 (실제 파일 선택 시)
+        if (starRatingInputContainer) updateEditStars(starRatingInputContainer, currentStarRating); // 상위 컨테이너 전달
+
+        // 💡 [제거] photoSelectButton 클릭 이벤트 로직 제거 (CSS 오버레이로 대체했음)
+        // const photoSelectButton = card.querySelector('.photo-select-button');
+        // if (photoSelectButton) {
+        //      photoSelectButton.addEventListener('click', (e) => {
+        //          e.preventDefault(); 
+        //      });
+        // }
+
         if (photoInput) {
             photoInput.addEventListener('change', function(event) {
                 const file = event.target.files[0];
                 if (file) {
-                    // 1. 파일 이름 업데이트
-                    if (photoFileNameInput) {
-                        photoFileNameInput.value = file.name;
-                    }
-                    
-                    // 2. 썸네일 미리보기 로직
+                    if (photoFileNameInput) photoFileNameInput.value = file.name;
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         if (thumbnailImage) thumbnailImage.src = e.target.result;
                         if (thumbnailPreview) thumbnailPreview.classList.remove('hidden');
-                        if (removePhotoHiddenInput) removePhotoHiddenInput.value = '0'; // 새 파일 선택 시 제거 플래그 해제
+                        if (removePhotoHiddenInput) removePhotoHiddenInput.value = '0';
                     }
                     reader.readAsDataURL(file);
                 } else {
-                     // 파일 선택 취소 시
-                     if (photoFileNameInput) {
-                        photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-                    }
-                     // *주의: 파일 선택 취소 시 기존 이미지 유무에 따라 미리보기 상태는 유지됨*
+                     if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
                 }
             });
         }
@@ -530,11 +522,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
                 if (thumbnailImage) thumbnailImage.src = '#';
                 if (thumbnailPreview) thumbnailPreview.classList.add('hidden');
-                if (removePhotoHiddenInput) removePhotoHiddenInput.value = '1'; // 사진 제거 플래그 설정
+                if (removePhotoHiddenInput) removePhotoHiddenInput.value = '1';
             });
         }
     }
-    
+
     function handleStarEditClick(e) {
         const starContainerElement = e.target.closest('.star-rating-input');
         if (!starContainerElement) return;
@@ -558,10 +550,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         ratingInput.value = newRating.toFixed(1);
-        updateEditStars(starContainerElement, newRating);
+        updateEditStars(starContainerElement, newRating); // 상위 컨테이너 전달
     }
     
     async function saveRestaurantEdit(card) {
+        // 💡 이제 editForm이 카드 내부에 모든 필드를 포함하므로, card 대신 editForm을 선택합니다.
         const editForm = card.querySelector('.edit-form');
         if (!editForm) return;
 
@@ -718,6 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             showToast(result.message, result.success);
             if (result.success) {
+                // '변경 사항이 없습니다' 메시지라도 성공으로 간주하고 새로고침
                 fetchRestaurants(searchInput.value || '모두');
             }
         } catch (error) { 
@@ -726,6 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 💡 [수정] 이 함수는 이제 .star-rating-input 컨테이너를 인자로 받습니다.
     function updateEditStars(container, rating) {
         const starsContainer = container.querySelector('.stars.edit-mode');
         const stars = starsContainer.querySelectorAll('.star');
@@ -734,6 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
             star.classList.remove('filled', 'half');
             if (rating >= starValue) star.classList.add('filled');
             else if (rating >= starValue - 0.5) star.classList.add('half');
+            else star.classList.remove('filled', 'half');
         });
     }
     

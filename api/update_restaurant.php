@@ -74,9 +74,35 @@ $star_rating = $_POST['star_rating'] ?? 0.0;
 $remove_photo = $_POST['remove_photo'] ?? '0'; // 1이면 사진 제거 요청
 $current_image_path = $_POST['current_image_path'] ?? null; // 현재 DB에 저장된 파일 이름
 
-if (empty($id) || empty($address)) {
+if (empty($id) || (empty($address) && empty($jibun_address))) {
     echo json_encode(['success' => false, 'message' => 'ID와 주소는 필수입니다.']);
     exit();
+}
+
+// 주소 단위 추출 로직 (save_restaurant.php에서 복사)
+$location_dong = ''; $location_si = ''; $location_gu = ''; $location_ri = '';
+$address_for_dong = !empty($jibun_address) ? $jibun_address : $address;
+$address_for_si_gu = !empty($address) ? $address : $jibun_address;
+
+if (!empty($address_for_si_gu)) {
+    $parts = explode(' ', $address_for_si_gu);
+    if(isset($parts[0])) $location_si = $parts[0];
+    if(isset($parts[1])) $location_gu = $parts[1];
+}
+if (!empty($address_for_dong)) {
+    $parts = explode(' ', $address_for_dong);
+    foreach ($parts as $part) {
+        if (str_ends_with($part, '동') || str_ends_with($part, '읍') || str_ends_with($part, '면')) {
+            $location_dong = $part;
+            break;
+        }
+    }
+    foreach (array_reverse($parts) as $part) {
+        if (str_ends_with($part, '리')) {
+            $location_ri = $part;
+            break;
+        }
+    }
 }
 if (empty($detail_address)) {
     $detail_address = null;
@@ -86,10 +112,11 @@ if (empty($detail_address)) {
 // 1. 이미지 처리 로직
 // -----------------------------------------------------
 $image_path_to_update = $current_image_path;
-$update_columns = "address = ?, jibun_address = ?, detail_address = ?, rating = ?, star_rating = ?";
-$types = "ssssd";
+$update_columns = "address = ?, jibun_address = ?, detail_address = ?, rating = ?, star_rating = ?, location_dong = ?, location_si = ?, location_gu = ?, location_ri = ?";
+$types = "ssssdssss";
 $bind_params = [
-    $address, $jibun_address, $detail_address, $rating, $star_rating
+    $address, $jibun_address, $detail_address, $rating, $star_rating,
+    $location_dong, $location_si, $location_gu, $location_ri
 ];
 $image_changed = false;
 
@@ -108,18 +135,24 @@ if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
     $unique_filename = uniqid('img_', true) . '.' . $file_extension;
     $full_path = $upload_dir . $unique_filename;
     $thumb_path = $thumb_dir . $unique_filename;
-
+    
+    // 파일 이동 성공 시에만 썸네일 생성 및 image_path 업데이트
     if (@move_uploaded_file($_FILES['photo']['tmp_name'], $full_path)) {
         if (create_thumbnail_for_update($full_path, $thumb_path)) {
+            // 이전 파일이 있다면 삭제
+            if (!empty($current_image_path) && $current_image_path !== $unique_filename) {
+                @unlink($upload_dir . $current_image_path);
+                @unlink($thumb_dir . $current_image_path);
+            }
             $image_path_to_update = $unique_filename;
             $image_changed = true;
         } else {
             @unlink($full_path); // 썸네일 생성 실패 시 원본 삭제
-            $image_path_to_update = null;
-            $image_changed = true; // DB에 NULL로 업데이트하기 위해 변경 플래그 유지
+            $image_path_to_update = $current_image_path; // 기존 경로 유지
+            // $image_changed = false; // 이미지 업데이트 쿼리에서 제외
         }
     } else {
-        // 파일 이동 실패 시 아무것도 하지 않음 (기존 이미지 경로 유지 시도)
+        // 파일 이동 실패 시 아무것도 하지 않음 (기존 이미지 경로 유지)
     }
 }
 
@@ -127,10 +160,10 @@ if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
 // 2. 최종 SQL 쿼리 구성
 // -----------------------------------------------------
 if ($image_changed) {
-    // 이미지 경로를 업데이트해야 하는 경우
+    // 이미지 경로를 업데이트해야 하는 경우 (NULL 또는 새 파일명)
     $update_columns .= ", image_path = ?";
     $types .= "s";
-    $bind_params[] = $image_path_to_update; // 새 경로 또는 NULL
+    $bind_params[] = $image_path_to_update;
 }
 
 // WHERE 조건에 사용될 파라미터 추가
@@ -151,20 +184,32 @@ if ($stmt === false) {
     exit();
 }
 
-// 바인딩 파라미터 준비 (참조 필요 없음: PHP 8.0 이상 환경을 가정)
-if (!$stmt->bind_param($types, ...$bind_params)) {
-    $error_message = '바인딩 실패: ' . $stmt->error;
-    $stmt->close();
-    $conn->close();
-    echo json_encode(['success' => false, 'message' => $error_message]);
-    exit();
+// 바인딩 파라미터 준비
+// 주의: bind_param은 변수를 참조로 받으므로, $bind_params를 배열로 직접 넘길 수 없습니다.
+// PHP 5.6 ~ 7.4에서 bind_param에 배열을 전달하는 안전한 방법
+if (!empty($bind_params)) {
+    // $bind_params 배열의 값을 참조로 변환
+    $refs = [];
+    foreach($bind_params as $key => $value) {
+        $refs[$key] = &$bind_params[$key];
+    }
+    // bind_param 함수를 동적으로 호출
+    if (!call_user_func_array([$stmt, 'bind_param'], array_merge([$types], $refs))) {
+        $error_message = '바인딩 실패: ' . $stmt->error;
+        $stmt->close();
+        $conn->close();
+        echo json_encode(['success' => false, 'message' => $error_message]);
+        exit();
+    }
 }
 
 if ($stmt->execute()) {
-    if ($stmt->affected_rows > 0 || $stmt->insert_id > 0) {
+    // 💡 [수정] affected_rows가 0이더라도 성공 메시지 반환
+    if ($stmt->affected_rows > 0) {
         echo json_encode(['success' => true, 'message' => '맛집 정보가 성공적으로 수정되었습니다.']);
     } else {
-        echo json_encode(['success' => false, 'message' => '수정할 권한이 없거나 변경된 내용이 없습니다.']);
+        // 💡 [수정] 변경된 내용이 없을 때 명확한 메시지 반환
+        echo json_encode(['success' => true, 'message' => '변경 사항이 없습니다.']);
     }
 } else {
     // 실패 시 상세 에러 메시지 반환
