@@ -1,4 +1,4 @@
-// 파일명: www/js/add.js (수정된 전체 코드)
+// 파일명: www/js/add.js (전체 코드 - 모바일 파일 선택 로직 반영)
 document.addEventListener('DOMContentLoaded', function () {
     // --- 기본 요소 ---
     const form = document.getElementById('add-restaurant-form');
@@ -15,15 +15,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const zeroStarBtn = document.querySelector('.btn-zero-star');
     const duplicateModal = document.getElementById('duplicate-modal');
     const duplicateList = document.getElementById('duplicate-list');
-    const photoInput = document.getElementById('photo-input');
+    const photoInput = document.getElementById('photo-input'); // 파일 입력 필드
     const thumbnailPreview = document.getElementById('thumbnail-preview');
     const thumbnailImage = document.getElementById('thumbnail-image');
     const removePhotoBtn = document.getElementById('remove-photo-btn');
     
-    // 💡 [추가] 파일 선택 커스텀 버튼 관련 요소
-    const customPhotoSelect = document.getElementById('custom-photo-select');
-    const photoSelectButton = document.getElementById('photo-select-button');
+    // 파일 선택 커스텀 UI 요소
     const photoFileNameInput = document.getElementById('photo-file-name');
+    const photoSelectButton = document.getElementById('photo-select-button');
     
     let currentFormData = null;
     let geocoder;
@@ -51,46 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
     starsContainer.addEventListener('click', handleStarClick);
     zeroStarBtn.addEventListener('click', resetStars);
     
-    // 💡 [추가] 커스텀 파일 선택 버튼 동작 정의
-    if (photoSelectButton) {
-        photoSelectButton.addEventListener('click', () => {
-            photoInput.click();
-        });
-    }
-
-    // 💡 [추가] 파일 선택 시 파일 이름 업데이트
-    photoInput.addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        if (file) {
-            // 1. 파일 이름 업데이트
-            if (photoFileNameInput) {
-                photoFileNameInput.value = file.name;
-            }
-
-            // 2. 썸네일 미리보기 로직 (기존 로직)
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                thumbnailImage.src = e.target.result;
-                thumbnailPreview.classList.remove('hidden');
-            }
-            reader.readAsDataURL(file);
-        } else {
-             if (photoFileNameInput) {
-                photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-            }
-        }
-    });
-
-    removePhotoBtn.addEventListener('click', function() {
-        photoInput.value = '';
-        if (photoFileNameInput) {
-            photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-        }
-        thumbnailImage.src = '#';
-        thumbnailPreview.classList.add('hidden');
-    });
-    
-    // 모달 관련 이벤트 리스너 (forceAddBtn, cancelAddBtn 등은 기존 코드에 있는 것으로 가정)
+    // 모달 이벤트 리스너 (기존 로직 유지)
     const forceAddBtn = document.getElementById('force-add-btn');
     const cancelAddBtn = document.getElementById('cancel-add-btn');
     if (forceAddBtn) {
@@ -106,6 +66,46 @@ document.addEventListener('DOMContentLoaded', function () {
             duplicateModal.classList.add('hidden');
         });
     }
+
+    // 💡 [추가] 커스텀 버튼 클릭 시 이벤트 전파 방지 (오버레이가 이벤트를 받기 위함)
+    if (photoSelectButton) {
+        photoSelectButton.addEventListener('click', (e) => {
+            e.preventDefault(); 
+        });
+    }
+
+    // 💡 [수정] 파일 입력 필드 변경 시 로직 (오버레이 클릭 후 change 이벤트 발생)
+    photoInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // 1. 파일 이름 업데이트
+            if (photoFileNameInput) {
+                photoFileNameInput.value = file.name;
+            }
+
+            // 2. 썸네일 미리보기 로직
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                thumbnailImage.src = e.target.result;
+                thumbnailPreview.classList.remove('hidden');
+            }
+            reader.readAsDataURL(file);
+        } else {
+             // 파일 선택 취소 시
+             if (photoFileNameInput) {
+                photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+            }
+        }
+    });
+
+    removePhotoBtn.addEventListener('click', function() {
+        photoInput.value = '';
+        if (photoFileNameInput) {
+            photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+        }
+        thumbnailImage.src = '#';
+        thumbnailPreview.classList.add('hidden');
+    });
 
     // --- 함수 ---
     function initializeTheme() {
@@ -269,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 3000);
     }
     
-    // 💡 null 또는 undefined 값이 들어와도 오류가 나지 않도록 안전장치 추가
     function escapeHTML(str) {
         if (str === null || str === undefined) {
             return ''; // str이 null이거나 비어있으면 빈 문자열을 반환

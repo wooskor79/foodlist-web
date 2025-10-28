@@ -1,4 +1,5 @@
 <?php
+// 파일명: www/add.php
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header('Location: index.php');
@@ -67,10 +68,12 @@ $js_version = filemtime('js/add.js');
                     
                     <div class="photo-upload-section">
                         <label for="photo-input">사진 추가</label>
-                        <input type="file" id="photo-input" name="photo" accept="image/*" class="hidden"> 
                         
-                        <div id="custom-photo-select" class="address-search-group">
+                        <div id="custom-file-wrapper" class="address-search-group">
                             <input type="text" id="photo-file-name" placeholder="파일 선택 (터치하여 열기)" readonly>
+                            
+                            <input type="file" id="photo-input" name="photo" accept="image/*" class="file-overlay-input"> 
+                            
                             <button type="button" id="photo-select-button">파일 선택</button>
                         </div>
 

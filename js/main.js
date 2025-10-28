@@ -1,4 +1,4 @@
-// 파일명: www/js/main.js (기존 맛집 수정 시 사진 추가/교체 기능 추가)
+// 파일명: www/js/main.js (전체 코드)
 document.addEventListener('DOMContentLoaded', () => {
     // --- 기본 요소 ---
     const searchInput = document.getElementById('dong-search-input');
@@ -45,17 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
     sortDropdown.addEventListener('change', handleSortChange);
     
     document.addEventListener('click', (e) => {
-        if (shareModal && shareModal.classList.contains('hidden') === false) {
-             const modalContent = shareModal.querySelector('.modal-content');
-             if (modalContent && !modalContent.contains(e.target) && !e.target.classList.contains('btn-share')) {
-                 closeShareModal();
-             }
+        if (shareModal && shareModal.querySelector('.modal-content') && !shareModal.querySelector('.modal-content').contains(e.target) && !e.target.classList.contains('btn-share')) {
+             if (!shareModal.classList.contains('hidden')) closeShareModal();
         }
-        if (photoModal && photoModal.classList.contains('hidden') === false) {
-            const modalContent = photoModal.querySelector('.photo-modal-content');
-            if (modalContent && !modalContent.contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
-                closePhotoModal();
-            }
+        if (photoModal && photoModal.querySelector('.photo-modal-content') && !photoModal.querySelector('.photo-modal-content').contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
+            if (!photoModal.classList.contains('hidden')) closePhotoModal();
         }
         if (searchResults && !searchResults.contains(e.target) && e.target !== searchInput) {
             searchResults.style.display = 'none';
@@ -418,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentStarRating = parseFloat(card.dataset.starRating);
         const favoriteBtn = card.querySelector('.btn-favorite')?.outerHTML || '';
         const currentImagePath = card.dataset.imagePath;
+        const inputId = `photo-input-${id}`; // 고유 ID
 
         card.querySelector('.info-group').innerHTML = `
             <form class="edit-form" enctype="multipart/form-data">
@@ -426,9 +421,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="info-item"><strong>지번:</strong><textarea class="jibun-edit-area" name="jibun_address">${restaurantData.jibun_address || ''}</textarea></p>
                 <p class="info-item"><strong>상세:</strong><textarea class="detail-edit-area" name="detail_address">${restaurantData.detail_address || ''}</textarea></p>
                 <p class="info-item"><strong>음식:</strong> ${card.dataset.foodType}</p>
+                
                 <div class="photo-upload-section">
-                    <label for="photo-input-${id}">사진 교체/추가</label>
-                    <input type="file" id="photo-input-${id}" name="photo" accept="image/*">
+                    <label for="${inputId}">사진 교체/추가</label>
+                    
+                    <div class="custom-file-wrapper" id="custom-file-wrapper-${id}">
+                        <input type="text" id="photo-file-name-${id}" placeholder="파일 선택 (터치하여 열기)" readonly>
+                        
+                        <input type="file" id="${inputId}" name="photo" accept="image/*" class="file-overlay-input"> 
+                        
+                        <button type="button" class="photo-select-button">파일 선택</button>
+                    </div>
+
                     <div id="thumbnail-preview-${id}" class="thumbnail-preview ${currentImagePath ? '' : 'hidden'}">
                         <img id="thumbnail-image-${id}" src="${currentImagePath ? 'images/thumb/' + currentImagePath : '#'}" alt="현재/선택 이미지 썸네일">
                         <button type="button" class="remove-photo-btn" data-id="${id}">&times;</button>
@@ -460,7 +464,8 @@ document.addEventListener('DOMContentLoaded', () => {
         card.querySelector('.card-actions').innerHTML = `${favoriteBtn}<button class="btn-share">공유</button> <button class="btn-save-edit">저장</button><button class="btn-cancel-edit">취소</button>`;
         
         // 새로운 이벤트 리스너 연결
-        const photoInput = document.getElementById(`photo-input-${id}`);
+        const photoInput = document.getElementById(inputId);
+        const photoFileNameInput = document.getElementById(`photo-file-name-${id}`);
         const removePhotoBtn = card.querySelector('.remove-photo-btn');
         const thumbnailImage = document.getElementById(`thumbnail-image-${id}`);
         const thumbnailPreview = document.getElementById(`thumbnail-preview-${id}`);
@@ -471,10 +476,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (starContainer) starContainer.addEventListener('click', handleStarEditClick);
         if (zeroStarBtn) zeroStarBtn.addEventListener('click', handleStarEditClick);
         
+        // 💡 [수정] photoSelectButton 클릭 이벤트 로직 제거 (오버레이 CSS로 클릭 이벤트가 photoInput으로 직접 전달됨)
+        const photoSelectButton = card.querySelector('.photo-select-button');
+        if (photoSelectButton) {
+             photoSelectButton.addEventListener('click', (e) => {
+                 e.preventDefault(); 
+             });
+        }
+
+
         if (photoInput) {
             photoInput.addEventListener('change', function(event) {
                 const file = event.target.files[0];
                 if (file) {
+                    // 1. 파일 이름 업데이트
+                    if (photoFileNameInput) {
+                        photoFileNameInput.value = file.name;
+                    }
+                    
+                    // 2. 썸네일 미리보기 로직
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         thumbnailImage.src = e.target.result;
@@ -482,6 +502,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         removePhotoHiddenInput.value = '0'; // 새 파일 선택 시 제거 플래그 해제
                     }
                     reader.readAsDataURL(file);
+                } else {
+                     // 파일 선택 취소 시
+                     if (photoFileNameInput) {
+                        photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+                    }
                 }
             });
         }
@@ -489,6 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (removePhotoBtn) {
             removePhotoBtn.addEventListener('click', function() {
                 photoInput.value = '';
+                 if (photoFileNameInput) {
+                    photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+                }
                 thumbnailImage.src = '#';
                 thumbnailPreview.classList.add('hidden');
                 removePhotoHiddenInput.value = '1'; // 사진 제거 플래그 설정
@@ -528,14 +556,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData(editForm);
         
-        const ratingInput = card.querySelector('.rating-edit-area');
-        if (ratingInput) {
-             formData.append('rating', ratingInput.value);
-        }
-        
-        // FormData에 textarea 값들을 수동으로 추가 (form으로 바로 얻어오지 않는 경우)
-        // Hidden input으로 변경하여 formData에 포함되도록 수정되었으므로, 별도 추가 로직 제거
-
         const saveBtn = card.querySelector('.btn-save-edit');
         saveBtn.disabled = true;
         saveBtn.textContent = '저장 중...';
@@ -578,7 +598,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 기존 공유 상태 불러오기 (새로운 API 엔드포인트 필요)
         let sharedUsers = [];
         try {
             const response = await fetch(`api/get_shared_users.php?restaurant_id=${restaurantId}`);
@@ -626,7 +645,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeShareModal() {
         if (!shareModal) return;
         shareModal.classList.add('hidden');
-        // 모달 닫을 때 목록 초기화
         shareRestaurantId.value = '';
         shareRestaurantName.textContent = '';
         shareUserList.innerHTML = '';
@@ -684,7 +702,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function updateRestaurant(formData) {
-        // [수정] 파일 업로드를 위해 form을 직접 전달
         try {
             const response = await fetch('api/update_restaurant.php', { method: 'POST', body: formData });
             const result = await response.json();
