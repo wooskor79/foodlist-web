@@ -1,0 +1,49 @@
+/* 파일명: www/css/3second.css (비디오 태그 스타일 추가) */
+
+/* --- 스플래시 화면 스타일 --- */
+#splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-color); /* 배경색은 본문 배경색 사용 */
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    visibility: visible;
+    flex-direction: column; /* 중앙 정렬을 위해 추가 */
+}
+
+#splash-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.splash-image-container {
+    width: 90%;
+    max-width: 500px; /* 이미지/영상 크기 제한 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: auto;
+}
+
+/* 💡 [수정] 이미지와 비디오 태그 모두에 적용되도록 스타일 수정 */
+#splash-media {
+    width: 100%;
+    height: auto;
+    /* 💡 object-fit: contain; 을 사용하여 컨테이너에 맞게 비율 유지 */
+    object-fit: contain; 
+    border-radius: var(--border-radius);
+    display: block; 
+}
+
+.loading-text {
+    margin-top: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}

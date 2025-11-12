@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>카카오 API 독립 테스트</title>
+</head>
+<body>
+    <h1>카카오 주소 검색 API 테스트</h1>
+    <p>
+        이 페이지는 add.js나 다른 스크립트 없이 오직 카카오 API만 호출하여<br>
+        API 키와 도메인 설정이 올바른지 확인하기 위한 목적입니다.
+    </p>
+    <hr>
+    <input type="text" id="test-address" value="성복1로 107" style="width: 300px;">
+    <button id="test-button">테스트 검색</button>
+    <hr>
+    <h3>결과:</h3>
+    <pre id="result"></pre>
+
+    <script>
+        document.getElementById('test-button').addEventListener('click', async function() {
+            const query = document.getElementById('test-address').value;
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '검색 중...';
+
+            // ❗️ 아래 YOUR_KAKAO_JAVASCRIPT_KEY 부분을 본인의 JavaScript 키로 교체하세요.
+            const KAKAO_API_KEY = '341110f947a005cbf66da8265ac7a95c';
+
+            try {
+                const response = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `KakaoAK ${KAKAO_API_KEY}` }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                     // HTTP 상태 코드가 200-299 범위가 아닐 때
+                     resultDiv.textContent = `오류 발생!\n\nHTTP 상태: ${response.status}\n\n오류 메시지: ${JSON.stringify(data, null, 2)}`;
+                } else {
+                    // 성공
+                    resultDiv.textContent = `🎉 성공!\n\n${JSON.stringify(data, null, 2)}`;
+                }
+
+            } catch (error) {
+                resultDiv.textContent = `치명적인 오류 발생: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
