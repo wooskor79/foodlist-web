@@ -4,7 +4,10 @@ session_start();
 $is_loggedin = isset($_SESSION['user_id']) && !empty($_SESSION['username']);
 $username = $is_loggedin ? htmlspecialchars($_SESSION['username']) : '';
 $version = filemtime('css/style.css') ?? time();
-$js_version = filemtime('js/main.js') ?? time();
+
+// 💡 [수정] JS 파일 버전 관리를 위해 filemtime 대신 time()을 사용하여 캐시 무시를 확실히 합니다.
+// (배포 시마다 새로운 버전 번호를 부여하여 캐시를 무효화합니다.)
+$js_version = time(); // filemtime('js/main.js') ?? time();
 
 // 💡 [수정] 스플래시 이미지 경로 변수 삭제
 ?>

@@ -11,16 +11,14 @@ $term = $_GET['term'] ?? '';
 $params = [];
 $types = '';
 
-// 💡 [수정] SELECT 절의 r.rating을 CASE 문으로 감싸서 빈 문자열(''), '0' 또는 NULL을 모두 NULL로 처리하도록 강제합니다.
-// 이렇게 하면 JS에서 r.rating이 null 또는 유효한 텍스트로만 넘어오게 되어 로직이 단순해집니다.
+// 💡 [수정] r.rating에 대한 CASE WHEN 구문 제거. 
+// DB에서 가져온 원래 값을 그대로 반환합니다.
 $sql = "
     SELECT 
         r.id, r.user_id, r.name, r.address, r.jibun_address, r.detail_address, r.food_type, r.star_rating,
-        CASE 
-            WHEN r.rating IS NULL OR TRIM(r.rating) = '' OR TRIM(r.rating) = '0' THEN NULL 
-            ELSE r.rating 
-        END AS rating,
+        r.rating, -- DB에서 가져온 원래 값을 그대로 반환
         r.image_path1, r.image_path2, r.image_path3, r.image_path4, r.image_path5,
+        r.location_dong, r.location_si, r.location_gu, r.location_ri, -- 지역 정보 포함
         u.username AS owner_name,
         CASE 
             WHEN ? > 0 AND r.user_id = ? THEN 1 
@@ -70,7 +68,7 @@ $stmt = $conn->prepare($sql);
 if ($stmt) {
     // 💡 [수정] 바인딩할 파라미터가 4개 이상일 때만 bind_param을 호출합니다.
     if (!empty($types)) {
-        // 배열을 참조로 전달하기 위해 리스트로 만듭니다. (PHP 8.0 이상에서는 ...$params를 사용 가능하지만, 안전을 위해)
+        // 배열을 참조로 전달하기 위해 리스트로 만듭니다.
         $bind_params = array_merge([$types], $params);
         
         // bind_param은 참조를 필요로 하므로, 배열 요소를 참조로 변환

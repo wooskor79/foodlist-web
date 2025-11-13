@@ -76,18 +76,18 @@ $address = trim($_POST['address'] ?? '');
 $jibun_address = trim($_POST['jibun_address'] ?? '');
 $detail_address = trim($_POST['detail_address'] ?? '');
 $food_type = $_POST['food_type'] ?? '';
-$rating = trim($_POST['rating'] ?? '');
+
+// 💡 [수정] 평가 문구는 trim 후 htmlspecialchars로 인코딩하여 저장
+$raw_rating = $_POST['rating'] ?? '';
+$rating = trim($raw_rating);
+$rating = empty($rating) ? null : htmlspecialchars($rating, ENT_QUOTES, 'UTF-8'); 
+
 $star_rating = $_POST['star_rating'] ?? 0.0;
 $force_add = $_POST['force'] ?? 'false';
 
 if (empty($name) || (empty($address) && empty($jibun_address)) || empty($food_type)) {
     echo json_encode(['success' => false, 'message' => '가게 이름, 주소, 음식 종류는 필수 항목입니다.']);
     exit;
-}
-
-// 💡 [추가] rating 값이 비어있을 경우 명시적으로 NULL로 설정
-if (empty($rating)) {
-    $rating = null;
 }
 
 // 중복 확인 로직 (force 플래그가 없으면 체크)
@@ -113,31 +113,47 @@ if ($force_add === 'false') {
 }
 
 
-// '동' 이름 추출 로직 (이전 단계와 동일)
+// '동/읍/면/리' 이름 추출 로직 (문제 2 해결)
 $location_dong = ''; $location_si = ''; $location_gu = ''; $location_ri = '';
 $address_for_dong = !empty($jibun_address) ? $jibun_address : $address;
 $address_for_si_gu = !empty($address) ? $address : $jibun_address;
 
 if (!empty($address_for_si_gu)) {
-    $parts = explode(' ', $address_for_si_gu);
+    mb_internal_encoding("UTF-8");
+    $parts = mb_split('\s+', $address_for_si_gu);
     if(isset($parts[0])) $location_si = $parts[0];
     if(isset($parts[1])) $location_gu = $parts[1];
 }
+
+// 💡 [수정] 동, 읍, 면, 리 추출 로직 강화: 주소 끝에서부터 검색하여 가장 상세한 행정구역을 찾습니다.
 if (!empty($address_for_dong)) {
-    $parts = explode(' ', $address_for_dong);
-    foreach ($parts as $part) {
-        if (str_ends_with($part, '동') || str_ends_with($part, '읍') || str_ends_with($part, '면')) {
-            $location_dong = $part;
-            break;
+    mb_internal_encoding("UTF-8");
+    $parts = mb_split('\s+', $address_for_dong);
+    $target_parts = ['동', '읍', '면', '리'];
+    
+    // 뒤에서부터 검색하여 가장 상세한 주소 단위(동/읍/면/리)를 찾습니다.
+    // '리'보다는 '동/읍/면'을 우선합니다.
+    foreach (array_reverse($parts) as $part) {
+        foreach ($target_parts as $suffix) {
+            // mb_substr($part, -mb_strlen($suffix))는 PHP 7.1 이상에서 작동
+            if (mb_substr($part, -mb_strlen($suffix)) === $suffix) {
+                if ($suffix !== '리') {
+                    $location_dong = $part;
+                    break 2; // 바깥 루프까지 종료
+                } else if (empty($location_dong)) {
+                    // 동/읍/면이 아직 설정되지 않았다면 '리'를 임시 저장
+                    $location_dong = $part; 
+                }
+            }
         }
     }
-    foreach (array_reverse($parts) as $part) {
-        if (str_ends_with($part, '리')) {
-            $location_ri = $part;
-            break;
-        }
+    
+    // 동/읍/면/리를 찾지 못했고 주소 파트가 남아있다면, 마지막 파트를 사용합니다.
+    if (empty($location_dong) && !empty($parts)) {
+        $location_dong = array_pop($parts);
     }
 }
+
 
 // -----------------------------------------------------
 // 💡 [수정] 다중 이미지 파일 업로드 처리
@@ -187,14 +203,12 @@ if ($stmt === false) {
 }
 
 // 💡 [수정] 17개 변수에 맞게 타입 정의 문자열을 "isssssdssssssssss"로 수정했습니다.
-// (i: user_id, s: name, s: address, s: jibun_address, s: detail_address, s: food_type, s: rating, d: star_rating, 5*s: image_paths, s: location_dong, s: location_si, s: location_gu, s: location_ri)
 $types = "isssssdssssssssss"; 
 $bind_params = array_merge(
     [
         $user_id, $name, $address, $jibun_address, $detail_address, 
         $food_type, $rating, $star_rating
     ],
-    // image_path1 ~ 5를 순서대로 추가
     array_values($image_paths),
     [
         $location_dong, $location_si, $location_gu, $location_ri
@@ -211,7 +225,7 @@ if (!$stmt->bind_param($types, ...$bind_refs)) {
     $error_message = '바인딩 실패: ' . $stmt->error;
     $stmt->close();
     $conn->close();
-    echo json_encode(['success' => false, 'message' => $error_message]);
+    echo json_encode(['success' => false, 'message' => '맛집 추가에 실패했습니다: 바인딩 오류 (' . $error_message . ')']);
     exit();
 }
 
@@ -221,7 +235,7 @@ if ($stmt->execute()) {
     $error_message = $stmt->error;
     $stmt->close();
     $conn->close();
-    echo json_encode(['success' => false, 'message' => '맛집 추가에 실패했습니다: ' . $error_message]);
+    echo json_encode(['success' => false, 'message' => '맛집 추가에 실패했습니다: DB 실행 오류 (' . $error_message . ')']);
 }
 $stmt->close();
 $conn->close();

@@ -246,6 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `${generateStarsHTML(r.star_rating)} <span class="star-text">${Number(r.star_rating).toFixed(1)}/5.0</span>`
                 : `<span class="no-rating-text">별점을 줄 가치 없음</span>`;
             
+            // 💡 [수정] 지역 정보 표시 (문제 2 해결)
+            const locationDongText = r.location_dong ? escapeHTML(r.location_dong) : '지역 정보 없음';
+
+            // 💡 [수정] 지번/도로명 주소 출력 시 상세 주소 포함 로직은 유지
             const hasJibun = r.jibun_address && r.jibun_address !== r.address;
             const jibunButton = hasJibun ? `<button class="btn-toggle-jibun">지번보기</button>` : '';
             
@@ -259,22 +263,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const addressContent = `<p class="info-item"><strong>도로명:</strong> <span class="address-text">${roadAddrFull}</span></p>` +
                 (hasJibun ? `<p class="info-item jibun-address hidden"><strong>지번:</strong> <span class="address-text">${jibunAddrFull}</span></p>` : '');
             
-            let ratingText = escapeHTML(r.rating || ''); // rating 값이 null이면 빈 문자열로 처리
-            
-            // 💡 [강화된 수정] 평가 문구 표시 로직 개선: rating 값이 없거나(null/빈 문자열) 숫자 '0'과 같은 문자열인 경우 "평가 없음" 표시
-            if (ratingText === '' || ratingText.trim() === '' || ratingText === '0') {
-                 ratingText = `<p class="rating-text no-rating-text">평가 없음</p>`;
+            // ----------------------------------------------------
+            // 💡 [평가 문구 출력 로직 최종 보강] 유효한 텍스트를 무조건 출력
+            // ----------------------------------------------------
+            let rawRatingText = r.rating;
+            let ratingTextContent;
+
+            // r.rating이 null, undefined, 또는 trim했을 때 빈 문자열인 경우만 '평가 없음' 처리
+            // '0'도 유효한 평가 문구가 아닐 경우 '평가 없음'으로 처리합니다.
+            const isRatingEmpty = rawRatingText === null || 
+                                  rawRatingText === undefined || 
+                                  String(rawRatingText).trim() === '' || 
+                                  String(rawRatingText).trim() === '0'; // '0' 처리 추가
+
+            if (isRatingEmpty) {
+                 ratingTextContent = `<p class="rating-text no-rating-text">평가 없음</p>`;
             } else {
-                 ratingText = `<p class="rating-text">${ratingText}</p>`;
+                 // 유효한 텍스트가 있는 경우 (공백만 있는 경우 제외)
+                 let escapedRatingText = escapeHTML(String(rawRatingText));
+                 ratingTextContent = `<p class="rating-text">${escapedRatingText}</p>`;
             }
 
-            const ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong>${ratingText}</div></div>`;
+            const ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong>${ratingTextContent}</div></div>`;
+            // ----------------------------------------------------
 
             card.innerHTML = `
                 <div class="card-header"><h3>${escapeHTML(r.name)}</h3></div>
                 <div class="card-subheader">
                     <div class="subheader-left">
-                        <span class="location-dong">(${escapeHTML(r.location_dong)})</span>
+                        <span class="location-dong">(${locationDongText})</span>
                         ${jibunButton} ${photoButton}
                     </div>
                     ${actionButtons}
@@ -678,11 +695,33 @@ document.addEventListener('DOMContentLoaded', () => {
         shareUserList.innerHTML = '<p class="placeholder">사용자 목록을 불러오는 중...</p>';
         shareModal.classList.remove('hidden');
         try {
-            const response = await fetch('api/get_users.php');
+            // 이 부분은 API 호출이 잘못된 것 같습니다.
+            // 올바른 API 호출: 해당 맛집을 이미 공유받은 사용자 목록을 가져와야 합니다.
+            const response = await fetch(`api/get_shared_users.php?restaurant_id=${id}`);
             const result = await response.json();
-            if (result.success) { renderUserList(result.data, id); } 
-            else { shareUserList.innerHTML = `<p class="placeholder">${result.message}</p>`; }
-        } catch (error) { shareUserList.innerHTML = `<p class="placeholder">사용자 목록 로딩 실패</p>`; }
+            
+            // API가 shared_with_user_id의 배열을 반환한다고 가정
+            if (result.success && result.data) {
+                renderUserList(result.data, id);
+            }
+        } catch (error) {
+            shareUserList.innerHTML = `<p class="placeholder">사용자 목록 로딩 실패</p>`;
+            console.error('Error fetching users:', error);
+        }
+        
+        // 공유 모달을 여는 API 호출을 다시 한 번 수행하여 모든 사용자 목록을 가져옵니다.
+        try {
+            const responseAllUsers = await fetch('api/get_users.php');
+            const resultAllUsers = await responseAllUsers.json();
+            
+            if (resultAllUsers.success) { 
+                renderUserList(resultAllUsers.data, id); 
+            } else { 
+                shareUserList.innerHTML = `<p class="placeholder">공유할 사용자 목록 로딩 실패: ${resultAllUsers.message}</p>`; 
+            }
+        } catch (error) { 
+             console.error('Error fetching all users for sharing:', error);
+        }
     }
     
     // 💡 [추가] 사진 슬라이드 모달 열기 및 초기화 함수
@@ -778,14 +817,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let sharedUsers = [];
         try {
-            // 이 부분은 API 호출이 잘못된 것 같습니다.
-            // 올바른 API 호출: 해당 맛집을 이미 공유받은 사용자 목록을 가져와야 합니다.
+            // 해당 맛집을 이미 공유받은 사용자 목록을 가져와야 합니다.
             const response = await fetch(`api/get_shared_users.php?restaurant_id=${restaurantId}`);
             const result = await response.json();
             
             // API가 shared_with_user_id의 배열을 반환한다고 가정
             if (result.success && result.data) {
-                sharedUsers = result.data.map(user => user.shared_with_user_id);
+                // sharedUsers에 ID만 추출
+                sharedUsers = result.data.map(user => parseInt(user.shared_with_user_id));
             }
         } catch (error) {
             console.error("공유 사용자 목록을 불러오는 데 실패했습니다.", error);
@@ -793,7 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let listHtml = '';
         users.forEach(user => {
-            // sharedUsers는 [2, 3, ...] 형태의 ID 배열입니다. user.id는 문자열일 수 있으므로 비교 시 parseInt(user.id)를 사용합니다.
+            // sharedUsers는 ID 배열입니다. user.id는 문자열일 수 있으므로 비교 시 parseInt(user.id)를 사용합니다.
             const isChecked = sharedUsers.includes(parseInt(user.id)) ? 'checked' : '';
             listHtml += `<div class="share-user-item">
                             <input type="checkbox" id="user-${user.id}" name="share_with_ids[]" value="${user.id}" ${isChecked}>
