@@ -70,10 +70,11 @@ $address = trim($_POST['address'] ?? '');
 $jibun_address = trim($_POST['jibun_address'] ?? '');
 $detail_address = trim($_POST['detail_address'] ?? '');
 
-// 💡 [수정] 평가 문구는 trim 후 htmlspecialchars로 인코딩하여 저장
+// 💡 [수정] 평가 문구 처리 로직 강화: trim() 후 문자열 길이가 0인 경우에만 NULL로 설정
 $raw_rating = $_POST['rating'] ?? '';
 $rating = trim($raw_rating);
-$rating = empty($rating) ? null : htmlspecialchars($rating, ENT_QUOTES, 'UTF-8'); // 빈 문자열이면 NULL로 설정
+// empty() 대신 strlen()으로 명확하게 문자열의 길이를 체크합니다.
+$rating = (strlen($rating) === 0) ? null : htmlspecialchars($rating, ENT_QUOTES, 'UTF-8'); // 빈 문자열이면 NULL로 설정
 
 $star_rating = $_POST['star_rating'] ?? 0.0;
 // 💡 [수정] 다중 이미지 관리를 위한 입력 파라미터 (1~5)
@@ -238,14 +239,20 @@ if (!$stmt->bind_param($types, ...$bind_refs)) {
 
 if ($stmt->execute()) {
     // affected_rows가 0이더라도, 별점/평가 등 다른 필드가 업데이트 되었거나 이미지가 변경되었을 수 있으므로 성공으로 간주합니다.
-    if ($stmt->affected_rows > 0 || $image_changed) {
+    if (
+        $stmt->affected_rows > 0 || 
+        $image_changed || 
+        // 💡 [추가] rating 또는 star_rating이 변경된 경우에도 성공으로 간주
+        $rating !== $current_db_paths['rating'] || 
+        $star_rating !== $current_db_paths['star_rating']
+    ) {
         // 이미지가 변경되었거나 다른 필드가 변경되었으면 성공 메시지
         echo json_encode(['success' => true, 'message' => '맛집 정보가 성공적으로 수정되었습니다.']);
     } else {
         echo json_encode(['success' => true, 'message' => '변경 사항이 없습니다.']);
     }
 } else {
-    echo json_encode(['success' => false, 'message' => '수정에 실패했습니다: ' . $stmt->error]);
+    echo json_encode(['success' => false, 'message' => '수정에 실패했습니다: ' . $conn->error]);
 }
 $stmt->close();
 $conn->close();

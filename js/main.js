@@ -270,17 +270,15 @@ document.addEventListener('DOMContentLoaded', () => {
             let ratingTextContent;
 
             // r.rating이 null, undefined, 또는 trim했을 때 빈 문자열인 경우만 '평가 없음' 처리
-            // '0'도 유효한 평가 문구가 아닐 경우 '평가 없음'으로 처리합니다.
-            const isRatingEmpty = rawRatingText === null || 
-                                  rawRatingText === undefined || 
-                                  String(rawRatingText).trim() === '' || 
-                                  String(rawRatingText).trim() === '0'; // '0' 처리 추가
+            // **수정: trim()을 사용하여 실제 내용이 있는지 확인**
+            const trimmedRatingText = String(rawRatingText || '').trim();
+            const isRatingEmpty = trimmedRatingText === '';
 
             if (isRatingEmpty) {
                  ratingTextContent = `<p class="rating-text no-rating-text">평가 없음</p>`;
             } else {
                  // 유효한 텍스트가 있는 경우 (공백만 있는 경우 제외)
-                 let escapedRatingText = escapeHTML(String(rawRatingText));
+                 let escapedRatingText = escapeHTML(trimmedRatingText); // trim된 텍스트를 이스케이프
                  ratingTextContent = `<p class="rating-text">${escapedRatingText}</p>`;
             }
 

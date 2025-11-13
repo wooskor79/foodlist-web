@@ -77,10 +77,11 @@ $jibun_address = trim($_POST['jibun_address'] ?? '');
 $detail_address = trim($_POST['detail_address'] ?? '');
 $food_type = $_POST['food_type'] ?? '';
 
-// 💡 [수정] 평가 문구는 trim 후 htmlspecialchars로 인코딩하여 저장
+// 💡 [수정] 평가 문구 처리 로직 강화: trim() 후 문자열 길이가 0인 경우에만 NULL로 설정
 $raw_rating = $_POST['rating'] ?? '';
 $rating = trim($raw_rating);
-$rating = empty($rating) ? null : htmlspecialchars($rating, ENT_QUOTES, 'UTF-8'); 
+// empty() 대신 strlen()으로 명확하게 문자열의 길이를 체크합니다.
+$rating = (strlen($rating) === 0) ? null : htmlspecialchars($rating, ENT_QUOTES, 'UTF-8'); 
 
 $star_rating = $_POST['star_rating'] ?? 0.0;
 $force_add = $_POST['force'] ?? 'false';
@@ -202,8 +203,9 @@ if ($stmt === false) {
     exit();
 }
 
-// 💡 [수정] 17개 변수에 맞게 타입 정의 문자열을 "isssssdssssssssss"로 수정했습니다.
-$types = "isssssdssssssssss"; 
+// 💡 [수정 완료] 타입 정의 문자열을 "issssssdsssssssss"로 수정했습니다.
+// (rating: s, star_rating: d)
+$types = "issssssdsssssssss"; 
 $bind_params = array_merge(
     [
         $user_id, $name, $address, $jibun_address, $detail_address, 

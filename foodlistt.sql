@@ -36,7 +36,8 @@ CREATE TABLE `restaurants` (
   `jibun_address` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '지번 주소',
   `detail_address` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '상세 주소',
   `food_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `rating` text COLLATE utf8mb4_unicode_ci,
+  -- 💡 [최종 수정] 평가(rating) 컬럼을 INT 오류 대신 VARCHAR(255)로 변경했습니다.
+  `rating` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '맛집 평가', 
   `star_rating` decimal(2,1) NOT NULL DEFAULT '0.0' COMMENT '별점 (0.0 ~ 5.0)',
   -- 💡 [수정] 단일 image_path 대신 최대 5개의 경로를 저장합니다.
   `image_path1` VARCHAR(255) NULL DEFAULT NULL COMMENT '사진 경로 1',
