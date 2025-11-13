@@ -27,7 +27,7 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 정보 테이블';
 
 
--- 5. 새로운 restaurants 테이블을 생성합니다. (is_favorite 컬럼 없음)
+-- 5. 새로운 restaurants 테이블을 생성합니다. (image_path1 ~ 5 추가)
 CREATE TABLE `restaurants` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL COMMENT '맛집을 등록한 사용자 ID',
@@ -38,6 +38,12 @@ CREATE TABLE `restaurants` (
   `food_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `rating` text COLLATE utf8mb4_unicode_ci,
   `star_rating` decimal(2,1) NOT NULL DEFAULT '0.0' COMMENT '별점 (0.0 ~ 5.0)',
+  -- 💡 [수정] 단일 image_path 대신 최대 5개의 경로를 저장합니다.
+  `image_path1` VARCHAR(255) NULL DEFAULT NULL COMMENT '사진 경로 1',
+  `image_path2` VARCHAR(255) NULL DEFAULT NULL COMMENT '사진 경로 2',
+  `image_path3` VARCHAR(255) NULL DEFAULT NULL COMMENT '사진 경로 3',
+  `image_path4` VARCHAR(255) NULL DEFAULT NULL COMMENT '사진 경로 4',
+  `image_path5` VARCHAR(255) NULL DEFAULT NULL COMMENT '사진 경로 5',
   `location_dong` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `location_si` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '시/도',
   `location_gu` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '시/군/구',
@@ -77,9 +83,7 @@ CREATE TABLE `user_favorites` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자별 즐겨찾기 테이블';
 
 
--- 8. restaurants 테이블에 이미지 경로 컬럼을 추가합니다.
-ALTER TABLE `restaurants`
-ADD COLUMN `image_path` VARCHAR(255) NULL DEFAULT NULL AFTER `star_rating`;
+-- 8. [제거됨] restaurants 테이블에 이미지 경로 컬럼을 추가하는 ALTER 문 대신 CREATE TABLE에 반영되었습니다.
 
 
 -- 9. 최초 접속을 위한 테스트용 계정을 추가합니다. (ID: test / PW: 1234)

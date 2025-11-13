@@ -1,7 +1,7 @@
 <?php
-// 파일명: www/api/save_restaurant.php (최종 수정본 - bind_param 오류 해결)
+// 파일명: www/api/save_restaurant.php (다중 사진 업로드 및 DB 저장 로직으로 수정)
 
-// 💡 [디버깅 목적] 에러 표시를 일시적으로 켭니다. 성공적으로 작동하면 다시 0으로 설정해주세요.
+// 💡 [디버깅 목적] 에러 표시를 일시적으로 켚니다. 성공적으로 작동하면 다시 0으로 설정해주세요.
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -23,9 +23,10 @@ $thumb_dir = $upload_dir . 'thumb/';
 if (!is_dir($upload_dir)) { @mkdir($upload_dir, 0777, true); }
 if (!is_dir($thumb_dir)) { @mkdir($thumb_dir, 0777, true); }
 
+// 썸네일 생성 함수 (기존 로직 유지)
 function create_thumbnail($source_path, $dest_path, $thumb_width = 300) {
     if (!extension_loaded('gd')) { return false; }
-    $source_info = getimagesize($source_path);
+    $source_info = @getimagesize($source_path);
     if (!$source_info) return false;
     list($width, $height, $type) = $source_info;
     if ($width == 0 || $height == 0) return false;
@@ -40,14 +41,14 @@ function create_thumbnail($source_path, $dest_path, $thumb_width = 300) {
     
     $source = null;
     switch ($type) {
-        case IMAGETYPE_JPEG: $source = imagecreatefromjpeg($source_path); break;
-        case IMAGETYPE_PNG: $source = imagecreatefrompng($source_path); break;
-        case IMAGETYPE_GIF: $source = imagecreatefromgif($source_path); break;
+        case IMAGETYPE_JPEG: $source = @imagecreatefromjpeg($source_path); break;
+        case IMAGETYPE_PNG: $source = @imagecreatefrompng($source_path); break;
+        case IMAGETYPE_GIF: $source = @imagecreatefromgif($source_path); break;
         default: return false;
     }
     if (!$source) return false;
 
-    // 원본 이미지에서 썸네일 크기만큼 중앙을 잘라냄
+    // 원본 이미지에서 썸네일 크기만큼 중앙을 잘라냄 (크롭 중앙 정렬)
     $src_x = 0; $src_y = 0; $src_w = $width; $src_h = $height;
     $target_w = $target_h = $thumb_width;
     
@@ -77,12 +78,35 @@ $detail_address = trim($_POST['detail_address'] ?? '');
 $food_type = $_POST['food_type'] ?? '';
 $rating = trim($_POST['rating'] ?? '');
 $star_rating = $_POST['star_rating'] ?? 0.0;
-// latitude, longitude 관련 변수와 로직은 제거된 상태입니다.
+$force_add = $_POST['force'] ?? 'false';
 
 if (empty($name) || (empty($address) && empty($jibun_address)) || empty($food_type)) {
     echo json_encode(['success' => false, 'message' => '가게 이름, 주소, 음식 종류는 필수 항목입니다.']);
     exit;
 }
+
+// 중복 확인 로직 (force 플래그가 없으면 체크)
+if ($force_add === 'false') {
+    $stmt_check = $conn->prepare(
+        "SELECT name, address, food_type, detail_address FROM restaurants 
+         WHERE (address = ? OR (jibun_address = ? AND ? != '')) AND detail_address <=> ?"
+    );
+    $stmt_check->bind_param("ssss", $address, $jibun_address, $jibun_address, $detail_address);
+    $stmt_check->execute();
+    $result_check = $stmt_check->get_result();
+
+    if ($result_check->num_rows > 0) {
+        $duplicates = [];
+        while ($row = $result_check->fetch_assoc()) {
+            $duplicates[] = $row;
+        }
+        $stmt_check->close();
+        echo json_encode(['success' => true, 'is_duplicate' => true, 'duplicates' => $duplicates]);
+        exit;
+    }
+    $stmt_check->close();
+}
+
 
 // '동' 이름 추출 로직 (이전 단계와 동일)
 $location_dong = ''; $location_si = ''; $location_gu = ''; $location_ri = '';
@@ -110,28 +134,46 @@ if (!empty($address_for_dong)) {
     }
 }
 
-$image_path = null; 
-if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-    $file_extension = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
-    $unique_filename = uniqid('img_', true) . '.' . $file_extension;
-    $full_path = $upload_dir . $unique_filename;
-    $thumb_path = $thumb_dir . $unique_filename;
+// -----------------------------------------------------
+// 💡 [수정] 다중 이미지 파일 업로드 처리
+// -----------------------------------------------------
+$image_paths = array_fill(1, 5, null); // [null, null, null, null, null]
+$uploaded_files = $_FILES['photos'] ?? [];
 
-    if (move_uploaded_file($_FILES['photo']['tmp_name'], $full_path)) {
-        if (create_thumbnail($full_path, $thumb_path)) {
-            $image_path = $unique_filename;
-        } else {
-            // 썸네일 생성 실패 시
-            @unlink($full_path);
-            // 오류 메시지를 클라이언트에 직접 전달하지 않고, DB 저장만 시도합니다.
+if (!empty($uploaded_files) && is_array($uploaded_files['name'])) {
+    $file_count = count($uploaded_files['name']);
+    $valid_count = 0;
+    
+    // 최대 5장까지만 처리
+    for ($i = 0; $i < min($file_count, 5); $i++) {
+        // 파일 업로드 오류 확인
+        if ($uploaded_files['error'][$i] !== UPLOAD_ERR_OK) {
+            continue; 
         }
-    } else {
-        // 파일 이동 실패
+
+        $file_name = $uploaded_files['name'][$i];
+        $file_tmp = $uploaded_files['tmp_name'][$i];
+        $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
+        $unique_filename = uniqid('img_', true) . '.' . $file_extension;
+        $full_path = $upload_dir . $unique_filename;
+        $thumb_path = $thumb_dir . $unique_filename;
+
+        // 파일 이동 및 썸네일 생성
+        if (@move_uploaded_file($file_tmp, $full_path)) {
+            if (create_thumbnail($full_path, $thumb_path)) {
+                $image_paths[$valid_count + 1] = $unique_filename; // 1-based 인덱스 사용
+                $valid_count++;
+            } else {
+                @unlink($full_path); // 썸네일 생성 실패 시 원본 삭제
+            }
+        }
     }
 }
 
-// SQL 쿼리: latitude, longitude 제거 완료
-$sql = "INSERT INTO restaurants (user_id, name, address, jibun_address, detail_address, food_type, rating, star_rating, image_path, location_dong, location_si, location_gu, location_ri) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+// -----------------------------------------------------
+// 💡 [수정] SQL 쿼리: image_path1 ~ 5 추가
+// -----------------------------------------------------
+$sql = "INSERT INTO restaurants (user_id, name, address, jibun_address, detail_address, food_type, rating, star_rating, image_path1, image_path2, image_path3, image_path4, image_path5, location_dong, location_si, location_gu, location_ri) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 $stmt = $conn->prepare($sql);
 
 if ($stmt === false) {
@@ -139,17 +181,31 @@ if ($stmt === false) {
     exit();
 }
 
-// 💡 [오류 수정] 13개 변수에 맞게 타입 정의 문자열을 "isssssdssssss"로 수정했습니다.
-// (i: user_id, s: name, s: address, s: jibun_address, s: detail_address, s: food_type, s: rating, d: star_rating, s: image_path, s: location_dong, s: location_si, s: location_gu, s: location_ri)
-$stmt->bind_param(
-    "isssssdssssss", 
-    $user_id, $name, $address, $jibun_address, $detail_address, 
-    $food_type, $rating, $star_rating, $image_path, 
-    $location_dong, $location_si, $location_gu, $location_ri
+// 💡 [수정] 17개 변수에 맞게 타입 정의 문자열을 "isssssdssssssssss"로 수정했습니다.
+// (i: user_id, s: name, s: address, s: jibun_address, s: detail_address, s: food_type, s: rating, d: star_rating, 5*s: image_paths, s: location_dong, s: location_si, s: location_gu, s: location_ri)
+$types = "isssssdssssssssss"; 
+$bind_params = array_merge(
+    [
+        $user_id, $name, $address, $jibun_address, $detail_address, 
+        $food_type, $rating, $star_rating
+    ],
+    // image_path1 ~ 5를 순서대로 추가
+    array_values($image_paths),
+    [
+        $location_dong, $location_si, $location_gu, $location_ri
+    ]
 );
 
+if (!$stmt->bind_param($types, ...$bind_params)) {
+    $error_message = '바인딩 실패: ' . $stmt->error;
+    $stmt->close();
+    $conn->close();
+    echo json_encode(['success' => false, 'message' => $error_message]);
+    exit();
+}
+
 if ($stmt->execute()) {
-    echo json_encode(['success' => true, 'message' => '맛집이 성공적으로 추가되었습니다.']);
+    echo json_encode(['success' => true, 'message' => '맛집이 성공적으로 추가되었습니다. (사진 ' . $valid_count . '장 포함)']);
 } else {
     $error_message = $stmt->error;
     $stmt->close();

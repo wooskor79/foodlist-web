@@ -1,5 +1,5 @@
 <?php
-// 파일명: www/api/get_restaurants.php (비로그인 상태에서 공유된 맛집 표시 기능 추가)
+// 파일명: www/api/get_restaurants.php (다중 사진 경로 조회로 수정)
 header('Content-Type: application/json');
 session_start();
 require_once 'db_config.php';
@@ -11,12 +11,11 @@ $term = $_GET['term'] ?? '';
 $params = [];
 $types = '';
 
-// 💡 [수정] 비로그인 시에도 모든 공유된 맛집을 조회할 수 있도록 기본 쿼리 및 WHERE 조건 구조 변경
-// is_owner와 is_favorite 컬럼은 로그인 상태에서만 의미가 있으므로, 로그인 상태가 아니면 0으로 설정합니다.
-
+// 💡 [수정] SELECT 절에 image_path1 ~ image_path5 추가
 $sql = "
     SELECT 
         r.*,
+        r.image_path1, r.image_path2, r.image_path3, r.image_path4, r.image_path5,
         u.username AS owner_name,
         CASE 
             WHEN ? > 0 AND r.user_id = ? THEN 1 

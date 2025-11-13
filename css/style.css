@@ -242,16 +242,161 @@ body.dark-mode .pagination-btn:disabled { color: #555; }
 #thumbnail-preview { position: relative; margin-top: 1rem; max-width: 150px; }
 #thumbnail-image { display: block; width: 100%; height: auto; border-radius: var(--border-radius); border: 1px solid var(--card-border-color); }
 #remove-photo-btn { position: absolute; top: -10px; right: -10px; background-color: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 1.2rem; line-height: 22px; text-align: center; cursor: pointer; font-weight: bold; }
-/* 사진 보기 모달 스타일 */
-#photo-modal .photo-modal-content { position: relative; width: 90%; max-width: 500px; padding: 0; background: none; }
-#photo-modal #modal-image { display: block; width: 100%; max-height: 80vh; object-fit: contain; border-radius: var(--border-radius); }
-#photo-modal .photo-modal-close { position: absolute; top: -10px; right: -5px; color: white; font-size: 2.5rem; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px black; }
-.restaurant-card .photo-upload-section .thumbnail-preview { max-width: 150px; }
-.restaurant-card .photo-upload-section #thumbnail-image, 
-.restaurant-card .thumbnail-preview img {
-    max-width: 100%;
-    max-height: 150px;
-    width: auto;
+/* 사진 보기 모달 스타일 (단일 이미지에서 슬라이더로 변경) */
+#photo-modal .photo-modal-content { 
+    position: relative; 
+    width: 90%; 
+    max-width: 600px; /* 슬라이더에 맞게 크기 키움 */
+    padding: 0; 
+    background: none; 
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+#photo-modal .photo-modal-close { 
+    position: absolute; 
+    top: 10px; 
+    right: 10px; 
+    color: white; 
+    font-size: 2.5rem; 
+    font-weight: bold; 
+    cursor: pointer; 
+    text-shadow: 0 0 5px black; 
+    z-index: 20; 
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+#photo-modal .photo-modal-close:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* 💡 [추가] 슬라이더 관련 스타일 */
+.slider-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden; /* 슬라이드 영역 벗어나는 요소 숨김 */
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.modal-slider {
+    display: flex;
+    transition: transform 0.4s ease-in-out;
+    width: 100%;
+}
+.modal-slider .slide {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     height: auto;
-    object-fit: contain;
+    /* 이미지 크기 제한은 JS에서 img 태그에 직접 적용 */
+}
+
+.slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 2rem;
+    line-height: 1;
+    transition: background 0.3s;
+}
+.slider-btn:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.7);
+}
+.slider-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.slider-btn.prev { left: 0; border-top-right-radius: var(--border-radius); border-bottom-right-radius: var(--border-radius); }
+.slider-btn.next { right: 0; border-top-left-radius: var(--border-radius); border-bottom-left-radius: var(--border-radius); }
+
+.slider-pagination {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    z-index: 10;
+}
+.slider-pagination .dot {
+    width: 10px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.slider-pagination .dot.active {
+    background: var(--primary-color);
+    box-shadow: 0 0 5px white;
+}
+
+/* 다중 파일 추가 영역 스타일 조정 */
+.photo-upload-section input[type="file"] {
+    padding: 0;
+    height: auto;
+}
+/* 💡 [수정] 파일 입력 필드를 버튼 크기에 맞게 덮고, 투명하게 만듭니다. */
+.photo-upload-section #custom-file-wrapper-multiple input[type="file"] {
+    height: 100%; /* 부모 높이(48px)를 덮도록 수정 */
+    width: 100%;
+    opacity: 0; /* 투명하게 */
+    position: absolute; /* 버튼 위에 덮기 */
+    top: 0;
+    left: 0;
+    z-index: 10;
+}
+.photo-upload-section #custom-file-wrapper-multiple {
+    height: 48px;
+    position: relative;
+    margin-bottom: 0.5rem;
+    /* 💡 [추가] input이 버튼을 덮으므로 버튼 클릭 핸들러는 필요 없습니다. */
+    overflow: hidden; 
+}
+/* 💡 [수정] 커스텀 버튼 (실제 클릭되지 않는) 스타일 수정 */
+.photo-upload-section #custom-file-wrapper-multiple button {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    margin-top: 0 !important; /* 인라인 스타일 덮어쓰기 */
+    padding: 0.8rem; /* 버튼 크기 통일 */
+    font-size: 1.1rem;
+}
+.photo-edit-group {
+    border: 1px solid var(--card-border-color);
+    padding: 10px;
+    border-radius: var(--border-radius);
+    margin-bottom: 10px !important;
+}
+.photo-edit-group label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: var(--primary-color);
+}
+.photo-edit-group .custom-file-wrapper {
+    margin-bottom: 0;
+}
+.photo-edit-group .thumbnail-preview {
+    margin-top: 10px;
+    max-width: 150px;
+    display: block; /* block으로 변경하여 숨김 처리 가능하도록 */
 }

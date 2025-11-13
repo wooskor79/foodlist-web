@@ -1,5 +1,5 @@
 <?php
-// 파일명: www/index.php (스플래시 화면 로직 분리 적용)
+// 파일명: www/index.php (스플래시 화면 로직 분리 적용, 슬라이드 모달 추가)
 session_start();
 $is_loggedin = isset($_SESSION['user_id']) && !empty($_SESSION['username']);
 $username = $is_loggedin ? htmlspecialchars($_SESSION['username']) : '';
@@ -105,10 +105,20 @@ $js_version = filemtime('js/main.js') ?? time();
         </div>
     </div>
     
+    <!-- 💡 [수정] 사진 슬라이드 기능을 위한 모달 변경 -->
     <div id="photo-modal" class="modal-overlay hidden">
         <div class="photo-modal-content">
             <span class="photo-modal-close" id="close-photo-modal-btn">&times;</span>
-            <img id="modal-image" src="#" alt="맛집 사진">
+            <div class="slider-container">
+                <div id="modal-slider" class="modal-slider">
+                    <!-- 이미지가 동적으로 로드될 영역 -->
+                </div>
+                <button class="slider-btn prev" id="slider-prev-btn">&#10094;</button>
+                <button class="slider-btn next" id="slider-next-btn">&#10095;</button>
+                <div id="slider-pagination" class="slider-pagination">
+                    <!-- 페이지네이션 도트가 로드될 영역 -->
+                </div>
+            </div>
         </div>
     </div>
     

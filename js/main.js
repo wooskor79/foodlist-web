@@ -1,4 +1,4 @@
-// 파일명: www/js/main.js (전체 코드)
+// 파일명: www/js/main.js (다중 사진 및 슬라이드 기능 추가)
 document.addEventListener('DOMContentLoaded', () => {
     // --- 기본 요소 ---
     const searchInput = document.getElementById('dong-search-input');
@@ -18,10 +18,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const shareRestaurantId = document.getElementById('share-restaurant-id');
     const shareUserList = document.getElementById('share-user-list');
     const closeShareModalBtn = document.getElementById('close-share-modal-btn');
-    const photoModal = document.getElementById('photo-modal');
-    const modalImage = document.getElementById('modal-image');
-    const closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
     
+    // 💡 [수정/추가] 사진 슬라이드 모달 요소
+    const photoModal = document.getElementById('photo-modal');
+    const closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
+    const modalSlider = document.getElementById('modal-slider');
+    const sliderPrevBtn = document.getElementById('slider-prev-btn');
+    const sliderNextBtn = document.getElementById('slider-next-btn');
+    const sliderPagination = document.getElementById('slider-pagination');
+
     const ptrIndicator = document.getElementById('pull-to-refresh-indicator');
 
     // --- 상태 관리 변수 ---
@@ -32,6 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemsPerPage = 10;
     let touchStartY = 0;
     let isRefreshing = false;
+    
+    // 💡 [추가] 슬라이드 상태 관리
+    let currentSlideIndex = 0;
+    let currentPhotoPaths = [];
 
     // --- 페이지 초기화 ---
     initializeTheme();
@@ -48,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (shareModal && shareModal.querySelector('.modal-content') && !shareModal.querySelector('.modal-content').contains(e.target) && !e.target.classList.contains('btn-share')) {
              if (!shareModal.classList.contains('hidden')) closeShareModal();
         }
-        if (photoModal && photoModal.querySelector('.photo-modal-content') && !photoModal.querySelector('.photo-modal-content').contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
+        // 💡 [수정] 사진 모달 닫기 로직: 모달 내부의 슬라이더 영역 클릭은 무시
+        if (photoModal && !photoModal.querySelector('.photo-modal-content').contains(e.target) && !e.target.classList.contains('btn-view-photo')) {
             if (!photoModal.classList.contains('hidden')) closePhotoModal();
         }
         if (searchResults && !searchResults.contains(e.target) && e.target !== searchInput) {
@@ -61,6 +71,12 @@ document.addEventListener('DOMContentLoaded', () => {
     restaurantList.addEventListener('click', handleCardActions);
     if(closePhotoModalBtn) closePhotoModalBtn.addEventListener('click', closePhotoModal);
     
+    // 💡 [추가] 슬라이드 버튼 이벤트 리스너
+    if (sliderPrevBtn) sliderPrevBtn.addEventListener('click', () => changeSlide(-1));
+    if (sliderNextBtn) sliderNextBtn.addEventListener('click', () => changeSlide(1));
+
+
+    // 풀 투 리프레시 로직 (기존 유지)
     document.addEventListener('touchstart', (e) => {
         if (window.scrollY === 0) { touchStartY = e.touches[0].clientY; } 
         else { touchStartY = -1; }
@@ -120,7 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (result.success) {
                 isLoggedIn = result.loggedin;
-                allRestaurants = result.data;
+                // 💡 [수정] 다중 이미지 경로를 배열로 변환하여 저장
+                allRestaurants = result.data.map(r => ({
+                    ...r,
+                    image_paths: [r.image_path1, r.image_path2, r.image_path3, r.image_path4, r.image_path5].filter(p => p)
+                }));
                 const currentFilter = filterButtonsContainer.querySelector('.active')?.dataset.filter || '모두';
                 applyFilterAndRender(currentFilter);
             } else {
@@ -206,7 +226,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.isFavorite = r.is_favorite;
             card.dataset.isOwner = r.is_owner;
             card.dataset.ownerName = r.owner_name;
-            card.dataset.imagePath = r.image_path || ''; 
+            // 💡 [수정] 모든 이미지 경로를 JSON 문자열로 저장
+            card.dataset.imagePaths = JSON.stringify(r.image_paths);
 
             const isOwner = r.is_owner == 1;
             const favoriteBtn = isLoggedIn ? `<button class="btn-favorite ${r.is_favorite == 1 ? 'is-favorite' : ''}" aria-label="즐겨찾기">♥</button>` : '';
@@ -225,7 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const hasJibun = r.jibun_address && r.jibun_address !== r.address;
             const jibunButton = hasJibun ? `<button class="btn-toggle-jibun">지번보기</button>` : '';
-            const photoButton = r.image_path ? `<button class="btn-view-photo">사진보기</button>` : '';
+            
+            // 💡 [수정] 사진이 하나라도 있으면 버튼 표시
+            const hasPhotos = r.image_paths.length > 0;
+            const photoButton = hasPhotos ? `<button class="btn-view-photo">사진보기 (${r.image_paths.length})</button>` : '';
+            
             const detailAddr = r.detail_address ? ` ${escapeHTML(r.detail_address)}` : '';
             const roadAddrFull = `${escapeHTML(r.address)}${detailAddr}`;
             const jibunAddrFull = r.jibun_address ? `${escapeHTML(r.jibun_address)}${detailAddr}` : '';
@@ -351,6 +376,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!card) return;
         const id = card.dataset.id;
         const isOwner = card.dataset.isOwner == 1;
+        // 💡 [수정] 다중 이미지 경로를 파싱
+        const imagePaths = JSON.parse(card.dataset.imagePaths || '[]');
 
         if (e.target.classList.contains('btn-toggle-jibun')) {
             const jibunP = card.querySelector('.jibun-address');
@@ -358,9 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.textContent = jibunP.classList.contains('hidden') ? '지번보기' : '숨기기';
             return;
         }
+        // 💡 [수정] 사진보기 버튼 클릭 시 openPhotoSliderModal 호출
         if (e.target.classList.contains('btn-view-photo')) {
-            const imagePath = card.dataset.imagePath;
-            if (imagePath) openPhotoModal(imagePath);
+            if (imagePaths && imagePaths.length > 0) openPhotoSliderModal(imagePaths);
             return;
         }
         if (!isLoggedIn) return;
@@ -406,19 +433,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 💡 [수정] 이 함수를 전체 수정하여 모든 입력 필드가 하나의 폼에 포함되도록 합니다.
+    // 💡 [수정] 다중 파일 처리를 위한 editRestaurant 로직 변경
     function editRestaurant(card) {
         const id = card.dataset.id;
         const restaurantData = allRestaurants.find(r => r.id == id);
         const currentStarRating = parseFloat(card.dataset.starRating);
         const favoriteBtn = card.querySelector('.btn-favorite')?.outerHTML || '';
-        const currentImagePath = card.dataset.imagePath;
-        const inputId = `photo-input-${id}`; // 고유 ID
-        const wrapperId = `custom-file-wrapper-${id}`; // wrapper ID 정의
-
-        // **새로운 편집 폼 HTML 생성 및 삽입**
-        // 모든 입력 필드와 숨겨진 필드를 하나의 form 태그 안에 포함합니다.
+        const currentImagePaths = JSON.parse(card.dataset.imagePaths || '[]');
         
+        // **새로운 편집 폼 HTML 생성 및 삽입**
+        let photoInputsHtml = '';
+        let thumbnailPreviewsHtml = '';
+        
+        // 최대 5개의 사진 필드를 동적으로 생성
+        for (let i = 1; i <= 5; i++) {
+            const path = currentImagePaths[i - 1] || '';
+            const isHidden = !path;
+            
+            photoInputsHtml += `
+                <div class="photo-edit-group" style="margin-bottom: 10px;">
+                    <label for="photo-input-${id}-${i}">사진 ${i} (교체/추가)</label>
+                    <div class="custom-file-wrapper" id="custom-file-wrapper-${id}-${i}">
+                        <input type="text" id="photo-file-name-${id}-${i}" placeholder="${path ? path : '파일 선택 (터치하여 열기)'}" readonly>
+                        <input type="file" id="photo-input-${id}-${i}" name="photos[]" data-index="${i}" accept="image/*" class="file-overlay-input"> 
+                        <button type="button" class="photo-select-button">파일 선택</button>
+                    </div>
+
+                    <div id="thumbnail-preview-${id}-${i}" class="thumbnail-preview ${isHidden ? 'hidden' : ''}" style="max-width: 100px;">
+                        <img id="thumbnail-image-${id}-${i}" src="${path ? 'images/thumb/' + path : '#'}" alt="현재/선택 이미지 썸네일" style="max-height: 100px;">
+                        <button type="button" class="remove-photo-btn" data-id="${id}" data-index="${i}">&times;</button>
+                        <input type="hidden" name="current_image_path${i}" value="${path}">
+                        <input type="hidden" name="remove_photo${i}" value="0">
+                    </div>
+                </div>
+            `;
+        }
+
         const formHtml = `
             <form class="edit-form" enctype="multipart/form-data">
                 <input type="hidden" name="id" value="${id}">
@@ -446,22 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="photo-upload-section">
-                    <label for="${inputId}">사진 교체/추가</label>
-                    
-                    <div class="custom-file-wrapper" id="${wrapperId}">
-                        <input type="text" id="photo-file-name-${id}" placeholder="파일 선택 (터치하여 열기)" readonly>
-                        
-                        <input type="file" id="${inputId}" name="photo" accept="image/*" class="file-overlay-input"> 
-                        
-                        <button type="button" class="photo-select-button">파일 선택</button>
-                    </div>
-
-                    <div id="thumbnail-preview-${id}" class="thumbnail-preview ${currentImagePath ? '' : 'hidden'}">
-                        <img id="thumbnail-image-${id}" src="${currentImagePath ? 'images/thumb/' + currentImagePath : '#'}" alt="현재/선택 이미지 썸네일">
-                        <button type="button" class="remove-photo-btn" data-id="${id}">&times;</button>
-                        <input type="hidden" name="current_image_path" value="${currentImagePath || ''}">
-                        <input type="hidden" name="remove_photo" value="0">
-                    </div>
+                    ${photoInputsHtml}
                 </div>
             </form>
         `;
@@ -475,59 +510,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // --- 이벤트 리스너 재연결 ---
-        const photoInput = document.getElementById(inputId);
-        const photoFileNameInput = document.getElementById(`photo-file-name-${id}`);
-        const removePhotoBtn = card.querySelector('.remove-photo-btn');
-        const thumbnailImage = document.getElementById(`thumbnail-image-${id}`);
-        const thumbnailPreview = document.getElementById(`thumbnail-preview-${id}`);
-        const removePhotoHiddenInput = card.querySelector('input[name="remove_photo"]');
+        const starRatingInputContainer = document.getElementById(`star-rating-input-${id}`);
         const starContainer = card.querySelector(`.star-container-${id}`);
         const zeroStarBtn = card.querySelector(`.btn-zero-star-edit`);
-        const starRatingInputContainer = document.getElementById(`star-rating-input-${id}`); // 상위 컨테이너
 
-        // 별점 초기 상태 업데이트 및 이벤트 연결
         if (starContainer) starContainer.addEventListener('click', handleStarEditClick);
         if (zeroStarBtn) zeroStarBtn.addEventListener('click', handleStarEditClick);
-        if (starRatingInputContainer) updateEditStars(starRatingInputContainer, currentStarRating); // 상위 컨테이너 전달
+        if (starRatingInputContainer) updateEditStars(starRatingInputContainer, currentStarRating);
 
-        // 💡 [제거] photoSelectButton 클릭 이벤트 로직 제거 (CSS 오버레이로 대체했음)
-        // const photoSelectButton = card.querySelector('.photo-select-button');
-        // if (photoSelectButton) {
-        //      photoSelectButton.addEventListener('click', (e) => {
-        //          e.preventDefault(); 
-        //      });
-        // }
+        // 💡 [추가] 다중 파일 입력/제거 이벤트 리스너 재연결
+        for (let i = 1; i <= 5; i++) {
+            const photoInput = document.getElementById(`photo-input-${id}-${i}`);
+            const photoFileNameInput = document.getElementById(`photo-file-name-${id}-${i}`);
+            const removePhotoBtn = card.querySelector(`.remove-photo-btn[data-index="${i}"]`);
+            const thumbnailImage = document.getElementById(`thumbnail-image-${id}-${i}`);
+            const thumbnailPreview = document.getElementById(`thumbnail-preview-${id}-${i}`);
+            const removePhotoHiddenInput = card.querySelector(`input[name="remove_photo${i}"]`);
+            const currentImagePathInput = card.querySelector(`input[name="current_image_path${i}"]`);
 
-        if (photoInput) {
-            photoInput.addEventListener('change', function(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    if (photoFileNameInput) photoFileNameInput.value = file.name;
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        if (thumbnailImage) thumbnailImage.src = e.target.result;
-                        if (thumbnailPreview) thumbnailPreview.classList.remove('hidden');
-                        if (removePhotoHiddenInput) removePhotoHiddenInput.value = '0';
+            if (photoInput) {
+                photoInput.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        if (photoFileNameInput) photoFileNameInput.value = file.name;
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            if (thumbnailImage) thumbnailImage.src = e.target.result;
+                            if (thumbnailPreview) thumbnailPreview.classList.remove('hidden');
+                            if (removePhotoHiddenInput) removePhotoHiddenInput.value = '0';
+                            // 새 파일을 업로드하면 기존 경로를 지웁니다. (DB 업데이트 로직에서 새 파일 경로를 삽입)
+                            if (currentImagePathInput) currentImagePathInput.value = ''; 
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        // 파일 선택 취소 시
+                        if (photoFileNameInput) photoFileNameInput.value = (currentImagePathInput?.value || '') ? currentImagePathInput.value : '파일 선택 (터치하여 열기)';
                     }
-                    reader.readAsDataURL(file);
-                } else {
-                     if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-                }
-            });
-        }
-        
-        if (removePhotoBtn) {
-            removePhotoBtn.addEventListener('click', function() {
-                if (photoInput) photoInput.value = '';
-                if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
-                if (thumbnailImage) thumbnailImage.src = '#';
-                if (thumbnailPreview) thumbnailPreview.classList.add('hidden');
-                if (removePhotoHiddenInput) removePhotoHiddenInput.value = '1';
-            });
+                });
+            }
+            
+            if (removePhotoBtn) {
+                removePhotoBtn.addEventListener('click', function() {
+                    if (photoInput) photoInput.value = '';
+                    if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+                    if (thumbnailImage) thumbnailImage.src = '#';
+                    if (thumbnailPreview) thumbnailPreview.classList.add('hidden');
+                    if (removePhotoHiddenInput) removePhotoHiddenInput.value = '1';
+                    // 기존 경로를 삭제 요청하면 DB 경로도 비웁니다.
+                    if (currentImagePathInput) currentImagePathInput.value = ''; 
+                });
+            }
         }
     }
 
-    function handleStarEditClick(e) {
+
+    function handleStarEditClick(e) { /* (로직 유지) */
         const starContainerElement = e.target.closest('.star-rating-input');
         if (!starContainerElement) return;
 
@@ -550,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         ratingInput.value = newRating.toFixed(1);
-        updateEditStars(starContainerElement, newRating); // 상위 컨테이너 전달
+        updateEditStars(starContainerElement, newRating);
     }
     
     async function saveRestaurantEdit(card) {
@@ -558,8 +595,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const editForm = card.querySelector('.edit-form');
         if (!editForm) return;
 
-        const formData = new FormData(editForm);
+        // FormData 구성: HTML 필드 + 새로 선택된 파일들
+        const formData = new FormData();
         
+        // 텍스트/숨겨진 필드 복사
+        editForm.querySelectorAll('input, textarea, select').forEach(input => {
+            // 파일 입력은 제외하고, 숨겨진 필드(ID, rating, remove_photoN, current_image_pathN)와 텍스트 영역만 복사
+            if (input.type !== 'file') {
+                 formData.append(input.name, input.value);
+            }
+        });
+        
+        // 💡 [수정] 5개의 파일 입력 필드를 순서대로 'photos[]' 배열로 추가 (비어있거나 삭제된 필드는 제외)
+        for (let i = 1; i <= 5; i++) {
+            const fileInput = document.getElementById(`photo-input-${card.dataset.id}-${i}`);
+            // 파일이 선택되었고, 파일 제거 요청이 아닌 경우에만 추가
+            const file = fileInput?.files?.[0];
+            const removeFlag = editForm.querySelector(`input[name="remove_photo${i}"]`)?.value;
+            
+            if (file && removeFlag === '0') {
+                // PHP에서 files 배열로 처리하기 위해 name을 photos[]로 변경하여 추가
+                formData.append('photos[]', file, file.name); 
+            }
+        }
+
         const saveBtn = card.querySelector('.btn-save-edit');
         saveBtn.disabled = true;
         saveBtn.textContent = '저장 중...';
@@ -570,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = '저장';
     }
 
-    async function openShareModal(id, name) {
+    async function openShareModal(id, name) { /* (로직 유지) */
         if (!shareModal) return;
         shareRestaurantId.value = id;
         shareRestaurantName.textContent = name;
@@ -584,19 +643,90 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { shareUserList.innerHTML = `<p class="placeholder">사용자 목록 로딩 실패</p>`; }
     }
     
-    function openPhotoModal(imagePath) {
-        if (!photoModal || !imagePath) return;
-        modalImage.src = 'images/' + imagePath; 
+    // 💡 [추가] 사진 슬라이드 모달 열기 및 초기화 함수
+    function openPhotoSliderModal(paths) {
+        if (!photoModal || paths.length === 0) return;
+
+        currentPhotoPaths = paths;
+        currentSlideIndex = 0;
+        
+        modalSlider.innerHTML = '';
+        paths.forEach((path, index) => {
+            const imgWrapper = document.createElement('div');
+            imgWrapper.className = 'slide';
+            imgWrapper.style.width = '100%';
+            imgWrapper.style.flexShrink = '0'; // 슬라이드 효과를 위해
+            imgWrapper.style.textAlign = 'center';
+
+            const img = document.createElement('img');
+            // 💡 썸네일 대신 원본 이미지를 로드합니다.
+            img.src = 'images/' + path; 
+            img.alt = `맛집 사진 ${index + 1}`;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '80vh';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = 'var(--border-radius)';
+            imgWrapper.appendChild(img);
+            modalSlider.appendChild(imgWrapper);
+        });
+
+        // 슬라이더 및 버튼 상태 업데이트
+        updateSlideDisplay();
         photoModal.classList.remove('hidden');
     }
+
+    // 💡 [추가] 슬라이드 위치 업데이트 및 버튼/페이지네이션 렌더링
+    function updateSlideDisplay() {
+        const totalSlides = currentPhotoPaths.length;
+
+        // 슬라이드 이동
+        modalSlider.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
+        
+        // 버튼 표시/숨김
+        if (sliderPrevBtn) sliderPrevBtn.style.display = totalSlides > 1 ? 'block' : 'none';
+        if (sliderNextBtn) sliderNextBtn.style.display = totalSlides > 1 ? 'block' : 'none';
+        
+        // 버튼 활성화/비활성화
+        if (sliderPrevBtn) sliderPrevBtn.disabled = currentSlideIndex === 0;
+        if (sliderNextBtn) sliderNextBtn.disabled = currentSlideIndex === totalSlides - 1;
+
+        // 페이지네이션 (도트) 렌더링
+        sliderPagination.innerHTML = currentPhotoPaths.map((_, index) => 
+            `<span class="dot ${index === currentSlideIndex ? 'active' : ''}" data-index="${index}"></span>`
+        ).join('');
+        
+        // 페이지네이션 도트 클릭 이벤트
+        sliderPagination.querySelectorAll('.dot').forEach(dot => {
+            dot.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                changeSlide(index - currentSlideIndex); // 현재 인덱스와의 차이만큼 이동
+            });
+        });
+    }
+
+    // 💡 [추가] 슬라이드 이동 함수
+    function changeSlide(direction) {
+        let newIndex = currentSlideIndex + direction;
+        const totalSlides = currentPhotoPaths.length;
+
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex >= totalSlides) newIndex = totalSlides - 1;
+
+        currentSlideIndex = newIndex;
+        updateSlideDisplay();
+    }
+
 
     function closePhotoModal() {
         if (!photoModal) return;
         photoModal.classList.add('hidden');
-        modalImage.src = '';
+        modalSlider.innerHTML = '';
+        currentPhotoPaths = [];
+        currentSlideIndex = 0;
+        if(sliderPagination) sliderPagination.innerHTML = '';
     }
 
-    async function renderUserList(users, restaurantId) {
+    async function renderUserList(users, restaurantId) { /* (로직 유지) */
         if (users.length === 0) {
             shareUserList.innerHTML = '<p class="placeholder">공유할 다른 사용자가 없습니다.</p>';
             return;
@@ -625,7 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (shareForm) {
-        shareForm.addEventListener('submit', async (e) => {
+        shareForm.addEventListener('submit', async (e) => { /* (로직 유지) */
             e.preventDefault();
             const formData = new FormData(shareForm);
             const submitButton = shareForm.querySelector('button[type="submit"]');
@@ -646,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if(closeShareModalBtn) closeShareModalBtn.addEventListener('click', closeShareModal);
-    function closeShareModal() {
+    function closeShareModal() { /* (로직 유지) */
         if (!shareModal) return;
         shareModal.classList.add('hidden');
         shareRestaurantId.value = '';
@@ -654,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
         shareUserList.innerHTML = '';
     }
 
-    async function toggleFavorite(id, button) {
+    async function toggleFavorite(id, button) { /* (로직 유지) */
         const card = button.closest('.restaurant-card');
         const isCurrentlyFavorite = card.dataset.isFavorite == 1;
         const newStatus = isCurrentlyFavorite ? 0 : 1;
@@ -677,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { console.error('Error toggling favorite:', error); }
     }
 
-    async function deleteRestaurant(id) {
+    async function deleteRestaurant(id) { /* (로직 유지) */
         const formData = new FormData();
         formData.append('id', id);
         try {
@@ -691,7 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { console.error('Error deleting:', error); }
     }
     
-    async function unshareRestaurant(id) {
+    async function unshareRestaurant(id) { /* (로직 유지) */
         const formData = new FormData();
         formData.append('id', id);
         try {
@@ -705,13 +835,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { console.error('Error unsharing:', error); }
     }
 
-    async function updateRestaurant(formData) {
+    async function updateRestaurant(formData) { /* (로직 유지) */
         try {
             const response = await fetch('api/update_restaurant.php', { method: 'POST', body: formData });
             const result = await response.json();
             showToast(result.message, result.success);
             if (result.success) {
-                // '변경 사항이 없습니다' 메시지라도 성공으로 간주하고 새로고침
                 fetchRestaurants(searchInput.value || '모두');
             }
         } catch (error) { 
@@ -720,8 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 💡 [수정] 이 함수는 이제 .star-rating-input 컨테이너를 인자로 받습니다.
-    function updateEditStars(container, rating) {
+    function updateEditStars(container, rating) { /* (로직 유지) */
         const starsContainer = container.querySelector('.stars.edit-mode');
         const stars = starsContainer.querySelectorAll('.star');
         stars.forEach(star => {
@@ -733,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    function showToast(message, isSuccess = true) {
+    function showToast(message, isSuccess = true) { /* (로직 유지) */
         const container = document.getElementById('toast-container');
         if(!container) return;
         const toast = document.createElement('div');
@@ -747,7 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
-    function generateStarsHTML(rating) {
+    function generateStarsHTML(rating) { /* (로직 유지) */
         let html = '';
         const ratingNum = Number(rating);
         for (let i = 1; i <= 5; i++) {
@@ -758,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return html;
     }
 
-    function escapeHTML(str) {
+    function escapeHTML(str) { /* (로직 유지) */
         if (str === null || str === undefined) return '';
         return str.toString().replace(/[&<>"']/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#x27;', '"': '&quot;'}[tag] || tag));
     }

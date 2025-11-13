@@ -29,6 +29,7 @@ $js_version = filemtime('js/add.js');
         </header>
         <main>
             <div class="add-form-section">
+                <!-- 💡 [수정] input name="photos[]"로 변경하여 다중 파일 전송을 지원합니다. -->
                 <form id="add-restaurant-form" enctype="multipart/form-data">
                     <input type="text" id="name" name="name" placeholder="가게 이름" required>
                     <div class="address-search-group">
@@ -67,21 +68,22 @@ $js_version = filemtime('js/add.js');
                     <textarea id="rating" name="rating" placeholder="평가 (예: 맛있어요, 친절해요)"></textarea>
                     
                     <div class="photo-upload-section">
-                        <label for="photo-input">사진 추가</label>
+                        <label for="photo-input-multiple">사진 추가 (최대 5장)</label>
                         
-                        <!-- 💡 [수정] id="custom-file-wrapper"를 추가하여 JS에서 이 요소를 클릭 이벤트 리스너의 대상으로 지정합니다. -->
-                        <div id="custom-file-wrapper" class="custom-file-wrapper">
-                            <input type="text" id="photo-file-name" placeholder="파일 선택 (터치하여 열기)" readonly>
-                            
-                            <input type="file" id="photo-input" name="photo" accept="image/*" class="file-overlay-input"> 
-                            
-                            <button type="button" id="photo-select-button">파일 선택</button>
+                        <!-- 💡 [수정] custom-file-wrapper-multiple의 인라인 스타일 제거 및 input에 CSS 클래스 적용 -->
+                        <div id="custom-file-wrapper-multiple" class="custom-file-wrapper">
+                            <!-- 💡 [수정] CSS로 버튼을 덮도록 opacity:0과 position:absolute를 다시 사용 -->
+                            <input type="file" id="photo-input-multiple" name="photos[]" accept="image/*" multiple class="file-overlay-input"> 
+                            <!-- 💡 [수정] input이 덮도록 z-index를 조정하고, JS에서 클릭 이벤트 대신 파일 선택을 처리합니다. -->
+                            <button type="button" class="btn-save" id="photo-select-button-multiple">파일 선택 (최대 5장)</button>
                         </div>
 
-                        <div id="thumbnail-preview" class="hidden">
-                            <img id="thumbnail-image" src="#" alt="선택한 이미지 썸네일">
-                            <button type="button" id="remove-photo-btn">&times;</button>
+                        <!-- 💡 [추가] 다중 썸네일 미리보기 영역 -->
+                        <div id="multiple-thumbnail-preview" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+                            <!-- 썸네일이 동적으로 추가될 영역 -->
                         </div>
+                        <button type="button" id="remove-all-photos-btn" class="btn-delete hidden" style="margin-top: 10px; width: auto;">모든 사진 제거</button>
+
                     </div>
                     
                     <button type="submit" class="btn-save">저장</button>
