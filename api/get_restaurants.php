@@ -11,10 +11,15 @@ $term = $_GET['term'] ?? '';
 $params = [];
 $types = '';
 
-// 💡 [수정] SELECT 절에 image_path1 ~ image_path5 추가
+// 💡 [수정] SELECT 절의 r.rating을 CASE 문으로 감싸서 빈 문자열(''), '0' 또는 NULL을 모두 NULL로 처리하도록 강제합니다.
+// 이렇게 하면 JS에서 r.rating이 null 또는 유효한 텍스트로만 넘어오게 되어 로직이 단순해집니다.
 $sql = "
     SELECT 
-        r.*,
+        r.id, r.user_id, r.name, r.address, r.jibun_address, r.detail_address, r.food_type, r.star_rating,
+        CASE 
+            WHEN r.rating IS NULL OR TRIM(r.rating) = '' OR TRIM(r.rating) = '0' THEN NULL 
+            ELSE r.rating 
+        END AS rating,
         r.image_path1, r.image_path2, r.image_path3, r.image_path4, r.image_path5,
         u.username AS owner_name,
         CASE 
@@ -64,12 +69,19 @@ $stmt = $conn->prepare($sql);
 
 if ($stmt) {
     // 💡 [수정] 바인딩할 파라미터가 4개 이상일 때만 bind_param을 호출합니다.
-    // 비로그인 상태일 때는 where 조건에 user_id가 추가되지 않으므로, 쿼리문 자체에 user_id를 4번 포함시키고, 
-    // where_clauses에 따라 추가적인 user_id를 바인딩합니다.
     if (!empty($types)) {
         // 배열을 참조로 전달하기 위해 리스트로 만듭니다. (PHP 8.0 이상에서는 ...$params를 사용 가능하지만, 안전을 위해)
         $bind_params = array_merge([$types], $params);
-        $stmt->bind_param(...$bind_params);
+        
+        // bind_param은 참조를 필요로 하므로, 배열 요소를 참조로 변환
+        $bind_refs = [];
+        foreach ($bind_params as $key => $value) {
+            $bind_refs[] = &$bind_params[$key];
+        }
+
+        if (!$stmt->bind_param(...$bind_refs)) {
+            // 바인딩 실패 처리
+        }
     }
     
     $stmt->execute();

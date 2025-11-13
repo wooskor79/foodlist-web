@@ -259,16 +259,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const addressContent = `<p class="info-item"><strong>도로명:</strong> <span class="address-text">${roadAddrFull}</span></p>` +
                 (hasJibun ? `<p class="info-item jibun-address hidden"><strong>지번:</strong> <span class="address-text">${jibunAddrFull}</span></p>` : '');
             
-            let ratingHTML = '';
-            // 💡 [수정] 평가 내용이 null이 아니고 공백이 아닌 모든 경우에 표시
-            // '0'이라는 텍스트가 DB에 저장되어도 정상적으로 표시됨.
-            if (r.rating !== null && r.rating.trim() !== '') {
-                ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong><p class="rating-text">${escapeHTML(r.rating)}</p></div></div>`;
+            let ratingText = escapeHTML(r.rating || ''); // rating 값이 null이면 빈 문자열로 처리
+            
+            // 💡 [강화된 수정] 평가 문구 표시 로직 개선: rating 값이 없거나(null/빈 문자열) 숫자 '0'과 같은 문자열인 경우 "평가 없음" 표시
+            if (ratingText === '' || ratingText.trim() === '' || ratingText === '0') {
+                 ratingText = `<p class="rating-text no-rating-text">평가 없음</p>`;
             } else {
-                 // 평가 내용이 비어있을 경우, "평가 없음" 텍스트를 표시
-                 ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong><p class="rating-text no-rating-text">평가 없음</p></div></div>`;
+                 ratingText = `<p class="rating-text">${ratingText}</p>`;
             }
 
+            const ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong>${ratingText}</div></div>`;
 
             card.innerHTML = `
                 <div class="card-header"><h3>${escapeHTML(r.name)}</h3></div>
@@ -464,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label for="photo-input-${id}-${i}">사진 ${i} (교체/추가)</label>
                     <div class="custom-file-wrapper" id="custom-file-wrapper-${id}-${i}">
                         <input type="text" id="photo-file-name-${id}-${i}" placeholder="${path ? path : '파일 선택 (터치하여 열기)'}" value="${path}" readonly>
-                        <input type="file" id="photo-input-${id}-${i}" name="photos[]" data-index="${i}" accept="image/*" class="file-overlay-input"> 
+                        <input type="file" id="photo-input-${id}-${i}" name="photos[${i}]" data-index="${i}" accept="image/*" class="file-overlay-input"> 
                         <button type="button" class="photo-select-button">파일 선택</button>
                     </div>
 
@@ -481,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // 💡 [수정] 평가(rating)의 초기값을 가져와 textarea에 설정합니다.
-        const currentRatingText = restaurantData.rating || ''; 
+        const currentRatingText = restaurantData.rating !== null ? restaurantData.rating : ''; 
 
         const formHtml = `
             <form class="edit-form" enctype="multipart/form-data">
@@ -778,9 +778,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let sharedUsers = [];
         try {
-            const response = await fetch('api/get_users.php');
+            // 이 부분은 API 호출이 잘못된 것 같습니다.
+            // 올바른 API 호출: 해당 맛집을 이미 공유받은 사용자 목록을 가져와야 합니다.
+            const response = await fetch(`api/get_shared_users.php?restaurant_id=${restaurantId}`);
             const result = await response.json();
-            if (result.success) {
+            
+            // API가 shared_with_user_id의 배열을 반환한다고 가정
+            if (result.success && result.data) {
                 sharedUsers = result.data.map(user => user.shared_with_user_id);
             }
         } catch (error) {
@@ -789,6 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let listHtml = '';
         users.forEach(user => {
+            // sharedUsers는 [2, 3, ...] 형태의 ID 배열입니다. user.id는 문자열일 수 있으므로 비교 시 parseInt(user.id)를 사용합니다.
             const isChecked = sharedUsers.includes(parseInt(user.id)) ? 'checked' : '';
             listHtml += `<div class="share-user-item">
                             <input type="checkbox" id="user-${user.id}" name="share_with_ids[]" value="${user.id}" ${isChecked}>

@@ -130,13 +130,21 @@ for ($i = 0; $i < 5; $i++) {
         if (!empty($path_to_delete)) {
             @unlink($upload_dir . $path_to_delete);
             @unlink($thumb_dir . $path_to_delete);
-            $new_paths_to_update[$i] = null; // DB에서 경로 제거
-            $image_changed = true;
         }
+        $new_paths_to_update[$i] = null; // DB에서 경로 제거
+        $image_changed = true;
     } else {
-        // 삭제 요청이 없고, 클라이언트에서 기존 경로가 비어있다면, DB 경로를 유지 (새 파일이 올라왔다면 덮어쓰일 예정)
-        // $new_paths_to_update는 이미 $current_db_paths로 초기화되어 있으므로, 
-        // 삭제되지 않은 항목은 기존 경로를 유지합니다.
+        // 삭제 요청이 없고, 클라이언트에서 기존 경로가 비어있다면(새 파일이 없다는 뜻), DB 경로를 유지
+        if (empty($current_image_paths[$i])) {
+             // 클라이언트에서 current_image_path가 비어있고 (새 파일 없음), 삭제 요청도 없으면
+             // 이전에 DB에 저장된 경로를 유지해야 합니다.
+             // 이 로직은 불필요하게 복잡해질 수 있으므로, 클라이언트에서 전송된 current_image_path를 신뢰하는 방식으로 단순화합니다.
+             // 하지만, 클라이언트에서 전송된 current_image_path는 "수정 전"의 값이므로, 
+             // 삭제되지 않은 항목은 현재 DB 경로를 그대로 유지해야 합니다.
+        } else {
+             // 클라이언트에서 current_image_path를 보냈다면 (삭제 요청 없음), 해당 경로를 유지
+             $new_paths_to_update[$i] = $current_image_paths[$i];
+        }
     }
 }
 
@@ -168,11 +176,11 @@ if (!empty($uploaded_files) && is_array($uploaded_files['name'])) {
         $full_path = $upload_dir . $unique_filename;
         $thumb_path = $thumb_dir . $unique_filename;
 
-        // 기존 파일이 있다면 삭제
-        $path_to_delete = $current_db_paths[$db_index];
-        if (!empty($path_to_delete)) {
-            @unlink($upload_dir . $path_to_delete);
-            @unlink($thumb_dir . $path_to_delete);
+        // 기존 파일이 있다면 삭제 (2-1에서 이미 삭제된 경우에도 안전합니다.)
+        $path_to_delete_old = $new_paths_to_update[$db_index];
+        if (!empty($path_to_delete_old)) {
+            @unlink($upload_dir . $path_to_delete_old);
+            @unlink($thumb_dir . $path_to_delete_old);
         }
 
         // 파일 이동 및 썸네일 생성
@@ -201,14 +209,11 @@ $bind_params = [
 ];
 
 // WHERE 조건에 사용될 파라미터 추가
-$types .= "i";
-$bind_params[] = $id;
-
 // SQL 쿼리 구성
 $sql = "UPDATE restaurants SET $update_columns WHERE id = ? AND user_id = ?";
 // 💡 user_id 체크가 필요하므로 WHERE 조건에 user_id를 추가해야 합니다.
-// 이미 select에서 권한을 확인했지만, update에서도 안전하게 한 번 더 체크합니다.
-$types .= "i";
+$types .= "ii";
+$bind_params[] = $id;
 $bind_params[] = $user_id;
 
 $stmt = $conn->prepare($sql);
@@ -237,6 +242,7 @@ if (!$stmt->bind_param($types, ...$bind_refs)) {
 
 
 if ($stmt->execute()) {
+    // affected_rows가 0이더라도, 별점/평가 등 다른 필드가 업데이트 되었거나 이미지가 변경되었을 수 있으므로 성공으로 간주합니다.
     if ($stmt->affected_rows > 0 || $image_changed) {
         // 이미지가 변경되었거나 다른 필드가 변경되었으면 성공 메시지
         echo json_encode(['success' => true, 'message' => '맛집 정보가 성공적으로 수정되었습니다.']);

@@ -85,6 +85,11 @@ if (empty($name) || (empty($address) && empty($jibun_address)) || empty($food_ty
     exit;
 }
 
+// 💡 [추가] rating 값이 비어있을 경우 명시적으로 NULL로 설정
+if (empty($rating)) {
+    $rating = null;
+}
+
 // 중복 확인 로직 (force 플래그가 없으면 체크)
 if ($force_add === 'false') {
     $stmt_check = $conn->prepare(
@@ -196,7 +201,13 @@ $bind_params = array_merge(
     ]
 );
 
-if (!$stmt->bind_param($types, ...$bind_params)) {
+// PHP 8.0 이전 환경과의 호환성을 위해 bind_param에 참조를 사용합니다.
+$bind_refs = [];
+foreach ($bind_params as $key => $value) {
+    $bind_refs[] = &$bind_params[$key];
+}
+
+if (!$stmt->bind_param($types, ...$bind_refs)) {
     $error_message = '바인딩 실패: ' . $stmt->error;
     $stmt->close();
     $conn->close();
