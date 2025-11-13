@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sortDropdown = document.getElementById('sort-dropdown');
     const paginationTop = document.getElementById('pagination-top');
     const paginationBottom = document.getElementById('pagination-bottom');
+    // 💡 [오류 수정 완료] themeToggleBtn 변수 선언이 하나만 유지되도록 처리되었습니다.
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
     
     // 모달 요소
@@ -203,7 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPage(page) {
         currentPage = page;
-        const totalPages = Math.ceil(filteredRestaurants.length / itemsPerPage);
+        // 💡 [오류 수정] const totalPages 중복 선언 제거:
+        const totalPages = Math.ceil(filteredRestaurants.length / itemsPerPage); 
         
         if (filteredRestaurants.length === 0) {
             restaurantList.innerHTML = '<p class="placeholder">해당 조건의 맛집이 없습니다.</p>';
@@ -258,9 +260,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 (hasJibun ? `<p class="info-item jibun-address hidden"><strong>지번:</strong> <span class="address-text">${jibunAddrFull}</span></p>` : '');
             
             let ratingHTML = '';
-            if (r.rating && r.rating.trim() !== '0' && r.rating.trim() !== '') {
+            // 💡 [수정] 평가 내용이 null이 아니고 공백이 아닌 모든 경우에 표시
+            // '0'이라는 텍스트가 DB에 저장되어도 정상적으로 표시됨.
+            if (r.rating !== null && r.rating.trim() !== '') {
                 ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong><p class="rating-text">${escapeHTML(r.rating)}</p></div></div>`;
+            } else {
+                 // 평가 내용이 비어있을 경우, "평가 없음" 텍스트를 표시
+                 ratingHTML = `<div class="rating"><div class="rating-content"><strong>평가:</strong><p class="rating-text no-rating-text">평가 없음</p></div></div>`;
             }
+
 
             card.innerHTML = `
                 <div class="card-header"><h3>${escapeHTML(r.name)}</h3></div>
@@ -426,6 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editRestaurant(card);
         }
         if (e.target.classList.contains('btn-cancel-edit')) {
+            // 수정 취소 시 목록 새로고침 (데이터 초기화)
             fetchRestaurants(searchInput.value || '모두');
         }
         if (e.target.classList.contains('btn-save-edit')) {
@@ -448,13 +457,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // 최대 5개의 사진 필드를 동적으로 생성
         for (let i = 1; i <= 5; i++) {
             const path = currentImagePaths[i - 1] || '';
-            const isHidden = !path;
+            const isHidden = !path; 
             
             photoInputsHtml += `
                 <div class="photo-edit-group" style="margin-bottom: 10px;">
                     <label for="photo-input-${id}-${i}">사진 ${i} (교체/추가)</label>
                     <div class="custom-file-wrapper" id="custom-file-wrapper-${id}-${i}">
-                        <input type="text" id="photo-file-name-${id}-${i}" placeholder="${path ? path : '파일 선택 (터치하여 열기)'}" readonly>
+                        <input type="text" id="photo-file-name-${id}-${i}" placeholder="${path ? path : '파일 선택 (터치하여 열기)'}" value="${path}" readonly>
                         <input type="file" id="photo-input-${id}-${i}" name="photos[]" data-index="${i}" accept="image/*" class="file-overlay-input"> 
                         <button type="button" class="photo-select-button">파일 선택</button>
                     </div>
@@ -462,12 +471,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="thumbnail-preview-${id}-${i}" class="thumbnail-preview ${isHidden ? 'hidden' : ''}" style="max-width: 100px;">
                         <img id="thumbnail-image-${id}-${i}" src="${path ? 'images/thumb/' + path : '#'}" alt="현재/선택 이미지 썸네일" style="max-height: 100px;">
                         <button type="button" class="remove-photo-btn" data-id="${id}" data-index="${i}">&times;</button>
+                        <!-- 현재 DB 경로를 저장하여, 파일 교체/삭제 요청이 없을 경우 이 경로를 유지합니다. -->
                         <input type="hidden" name="current_image_path${i}" value="${path}">
-                        <input type="hidden" name="remove_photo${i}" value="0">
+                        <!-- 0: 유지/새 파일, 1: 삭제 요청 -->
+                        <input type="hidden" name="remove_photo${i}" value="0"> 
                     </div>
                 </div>
             `;
         }
+        
+        // 💡 [수정] 평가(rating)의 초기값을 가져와 textarea에 설정합니다.
+        const currentRatingText = restaurantData.rating || ''; 
 
         const formHtml = `
             <form class="edit-form" enctype="multipart/form-data">
@@ -482,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <div class="rating">
-                    <div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area" name="rating" placeholder="평가 (예: 맛있어요, 친절해요)">${escapeHTML(restaurantData.rating || '')}</textarea></div>
+                    <div class="rating-content"><strong>평가:</strong><textarea class="rating-edit-area" name="rating" placeholder="평가 (예: 맛있어요, 친절해요)">${escapeHTML(currentRatingText)}</textarea></div>
                 </div>
 
                 <div class="star-rating-input" id="star-rating-input-${id}">
@@ -539,23 +553,33 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (thumbnailPreview) thumbnailPreview.classList.remove('hidden');
                             if (removePhotoHiddenInput) removePhotoHiddenInput.value = '0';
                             // 새 파일을 업로드하면 기존 경로를 지웁니다. (DB 업데이트 로직에서 새 파일 경로를 삽입)
+                            // 이 필드는 서버에서 현재 파일이 유지되는지 여부를 판단하기 위해 사용됩니다.
                             if (currentImagePathInput) currentImagePathInput.value = ''; 
                         }
                         reader.readAsDataURL(file);
                     } else {
                         // 파일 선택 취소 시
-                        if (photoFileNameInput) photoFileNameInput.value = (currentImagePathInput?.value || '') ? currentImagePathInput.value : '파일 선택 (터치하여 열기)';
+                        // 이전에 경로가 있었다면 다시 표시
+                        if (photoFileNameInput) photoFileNameInput.value = currentImagePathInput?.value || '파일 선택 (터치하여 열기)';
+                        // 파일 선택 취소 시에는 remove_photo 플래그를 건드리지 않습니다.
                     }
                 });
             }
             
             if (removePhotoBtn) {
                 removePhotoBtn.addEventListener('click', function() {
+                    // 파일 입력 필드 초기화 (새 파일 선택 취소)
                     if (photoInput) photoInput.value = '';
+                    
+                    // 파일명 표시를 초기화하거나 기존 경로를 유지 (서버에 삭제 요청)
                     if (photoFileNameInput) photoFileNameInput.value = '파일 선택 (터치하여 열기)';
+                    
                     if (thumbnailImage) thumbnailImage.src = '#';
                     if (thumbnailPreview) thumbnailPreview.classList.add('hidden');
+                    
+                    // 삭제 요청 플래그 설정
                     if (removePhotoHiddenInput) removePhotoHiddenInput.value = '1';
+                    
                     // 기존 경로를 삭제 요청하면 DB 경로도 비웁니다.
                     if (currentImagePathInput) currentImagePathInput.value = ''; 
                 });
@@ -599,25 +623,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         
         // 텍스트/숨겨진 필드 복사
-        editForm.querySelectorAll('input, textarea, select').forEach(input => {
-            // 파일 입력은 제외하고, 숨겨진 필드(ID, rating, remove_photoN, current_image_pathN)와 텍스트 영역만 복사
-            if (input.type !== 'file') {
-                 formData.append(input.name, input.value);
-            }
-        });
-        
-        // 💡 [수정] 5개의 파일 입력 필드를 순서대로 'photos[]' 배열로 추가 (비어있거나 삭제된 필드는 제외)
+        // photo-input-*-* 필드를 순회하며 파일 상태를 확인합니다.
         for (let i = 1; i <= 5; i++) {
             const fileInput = document.getElementById(`photo-input-${card.dataset.id}-${i}`);
-            // 파일이 선택되었고, 파일 제거 요청이 아닌 경우에만 추가
+            const currentImagePathInput = editForm.querySelector(`input[name="current_image_path${i}"]`);
+            const removePhotoHiddenInput = editForm.querySelector(`input[name="remove_photo${i}"]`);
+
+            // 1. 새 파일이 선택된 경우 (최우선)
             const file = fileInput?.files?.[0];
-            const removeFlag = editForm.querySelector(`input[name="remove_photo${i}"]`)?.value;
+            if (file) {
+                // PHP에서 files 배열로 처리하기 위해 name을 photos[]로 변경하여 추가합니다.
+                formData.append(`photos[${i}]`, file, file.name); 
+            }
             
-            if (file && removeFlag === '0') {
-                // PHP에서 files 배열로 처리하기 위해 name을 photos[]로 변경하여 추가
-                formData.append('photos[]', file, file.name); 
+            // 2. 현재 이미지 경로 유지 (파일을 새로 선택하지 않았고, 삭제 요청도 없는 경우)
+            // current_image_pathN 값이 있다면(기존 파일이 있었고 삭제 요청이 없었다면) 서버로 전송합니다.
+            // 서버에서는 이 값이 있으면 해당 파일을 유지합니다.
+            if (currentImagePathInput && currentImagePathInput.value) {
+                 formData.append(`current_image_path${i}`, currentImagePathInput.value);
+            }
+            
+            // 3. 파일 제거 요청 (remove_photoN = 1)
+            if (removePhotoHiddenInput) {
+                formData.append(`remove_photo${i}`, removePhotoHiddenInput.value);
             }
         }
+
+        // 텍스트/숨겨진 필드 복사 (파일 필드 제외)
+        editForm.querySelectorAll('input, textarea, select').forEach(input => {
+            if (input.type !== 'file') {
+                 // name="photos[]" 형태의 input은 이미 위에서 처리했으므로 제외.
+                 // photos[1] 등의 인덱스도 위에서 부여했으므로 일반 input만 처리합니다.
+                if (input.name && !input.name.startsWith('photos[') && !input.name.startsWith('current_image_path') && !input.name.startsWith('remove_photo')) {
+                    formData.append(input.name, input.value);
+                }
+            }
+        });
+
 
         const saveBtn = card.querySelector('.btn-save-edit');
         saveBtn.disabled = true;
@@ -691,17 +733,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sliderNextBtn) sliderNextBtn.disabled = currentSlideIndex === totalSlides - 1;
 
         // 페이지네이션 (도트) 렌더링
-        sliderPagination.innerHTML = currentPhotoPaths.map((_, index) => 
-            `<span class="dot ${index === currentSlideIndex ? 'active' : ''}" data-index="${index}"></span>`
-        ).join('');
-        
-        // 페이지네이션 도트 클릭 이벤트
-        sliderPagination.querySelectorAll('.dot').forEach(dot => {
-            dot.addEventListener('click', (e) => {
-                const index = parseInt(e.target.dataset.index);
-                changeSlide(index - currentSlideIndex); // 현재 인덱스와의 차이만큼 이동
+        if (sliderPagination) {
+            sliderPagination.innerHTML = currentPhotoPaths.map((_, index) => 
+                `<span class="dot ${index === currentSlideIndex ? 'active' : ''}" data-index="${index}"></span>`
+            ).join('');
+            
+            // 페이지네이션 도트 클릭 이벤트
+            sliderPagination.querySelectorAll('.dot').forEach(dot => {
+                dot.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    changeSlide(index - currentSlideIndex); // 현재 인덱스와의 차이만큼 이동
+                });
             });
-        });
+        }
     }
 
     // 💡 [추가] 슬라이드 이동 함수
@@ -720,7 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function closePhotoModal() {
         if (!photoModal) return;
         photoModal.classList.add('hidden');
-        modalSlider.innerHTML = '';
+        if(modalSlider) modalSlider.innerHTML = '';
         currentPhotoPaths = [];
         currentSlideIndex = 0;
         if(sliderPagination) sliderPagination.innerHTML = '';
@@ -734,13 +778,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let sharedUsers = [];
         try {
-            const response = await fetch(`api/get_shared_users.php?restaurant_id=${restaurantId}`);
+            const response = await fetch('api/get_users.php');
             const result = await response.json();
             if (result.success) {
                 sharedUsers = result.data.map(user => user.shared_with_user_id);
             }
-        } catch (e) {
-            console.error("공유 사용자 목록을 불러오는 데 실패했습니다.", e);
+        } catch (error) {
+            console.error("공유 사용자 목록을 불러오는 데 실패했습니다.", error);
         }
 
         let listHtml = '';

@@ -66,10 +66,13 @@ function create_thumbnail_for_update($source_path, $dest_path, $thumb_width = 30
 
 $user_id = $_SESSION['user_id'];
 $id = $_POST['id'] ?? 0;
-$address = $_POST['address'] ?? '';
-$jibun_address = $_POST['jibun_address'] ?? '';
-$detail_address = $_POST['detail_address'] ?? null;
-$rating = $_POST['rating'] ?? '';
+$address = trim($_POST['address'] ?? '');
+$jibun_address = trim($_POST['jibun_address'] ?? '');
+$detail_address = trim($_POST['detail_address'] ?? '');
+// 💡 [수정] rating 값을 받아 공백을 제거하고, 값이 비어있으면 NULL로 설정
+$rating = trim($_POST['rating'] ?? '');
+$rating = empty($rating) ? null : $rating; // 빈 문자열이면 NULL로 설정
+
 $star_rating = $_POST['star_rating'] ?? 0.0;
 // 💡 [수정] 다중 이미지 관리를 위한 입력 파라미터 (1~5)
 $remove_photos = [
@@ -121,6 +124,7 @@ $image_changed = false;
 // -----------------------------------------------------
 // 2-1. 기존 사진 삭제 요청 처리 (remove_photo 플래그 체크)
 for ($i = 0; $i < 5; $i++) {
+    // 클라이언트에서 '1'을 보내면 삭제 요청
     if ($remove_photos[$i] === '1') {
         $path_to_delete = $current_db_paths[$i];
         if (!empty($path_to_delete)) {
@@ -129,83 +133,53 @@ for ($i = 0; $i < 5; $i++) {
             $new_paths_to_update[$i] = null; // DB에서 경로 제거
             $image_changed = true;
         }
+    } else {
+        // 삭제 요청이 없고, 클라이언트에서 기존 경로가 비어있다면, DB 경로를 유지 (새 파일이 올라왔다면 덮어쓰일 예정)
+        // $new_paths_to_update는 이미 $current_db_paths로 초기화되어 있으므로, 
+        // 삭제되지 않은 항목은 기존 경로를 유지합니다.
     }
 }
 
 // 2-2. 새 이미지 업로드 및 처리
+// 💡 [수정] 클라이언트 JS에서 'photos[1]', 'photos[2]'... 형태로 파일을 전송한다고 가정하고 처리합니다.
 $uploaded_files = $_FILES['photos'] ?? [];
-$upload_counter = 0; // 업로드된 새 파일 카운터
 
 if (!empty($uploaded_files) && is_array($uploaded_files['name'])) {
-    $file_count = count($uploaded_files['name']);
     
-    for ($i = 0; $i < min($file_count, 5); $i++) {
+    // 이 배열은 클라이언트에서 보낸 파일 인덱스를 DB의 image_pathN 순서(0~4)에 맞게 매핑하는 데 사용됩니다.
+    // 클라이언트에서 files[1]을 보냈다면, $i=1을 사용합니다.
+    foreach ($uploaded_files['name'] as $file_index_str => $file_name) {
+        $file_index = (int)$file_index_str; // '1', '2', ... -> 1, 2, ...
+        $db_index = $file_index - 1; // DB 컬럼 인덱스 (0~4)
+
+        // DB 인덱스가 유효한지 확인
+        if ($db_index < 0 || $db_index >= 5) {
+            continue;
+        }
+        
         // 파일 업로드 오류 확인
-        if ($uploaded_files['error'][$i] !== UPLOAD_ERR_OK) {
+        if ($uploaded_files['error'][$file_index_str] !== UPLOAD_ERR_OK) {
             continue; 
         }
 
-        // 새 파일 정보
-        $file_name = $uploaded_files['name'][$i];
-        $file_tmp = $uploaded_files['tmp_name'][$i];
+        $file_tmp = $uploaded_files['tmp_name'][$file_index_str];
         $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
         $unique_filename = uniqid('img_', true) . '.' . $file_extension;
         $full_path = $upload_dir . $unique_filename;
         $thumb_path = $thumb_dir . $unique_filename;
 
+        // 기존 파일이 있다면 삭제
+        $path_to_delete = $current_db_paths[$db_index];
+        if (!empty($path_to_delete)) {
+            @unlink($upload_dir . $path_to_delete);
+            @unlink($thumb_dir . $path_to_delete);
+        }
+
         // 파일 이동 및 썸네일 생성
         if (@move_uploaded_file($file_tmp, $full_path)) {
             if (create_thumbnail_for_update($full_path, $thumb_path)) {
-                $upload_counter++;
+                $new_paths_to_update[$db_index] = $unique_filename; // 새 경로로 덮어쓰기
                 $image_changed = true;
-                
-                // 새로운 이미지 경로를 대체할 위치를 찾습니다.
-                // 1. 기존에 삭제 플래그(remove_photoX = 1)로 비워진 위치를 우선 채웁니다.
-                // 2. 비워진 위치가 없으면, 기존 이미지 경로를 덮어씁니다.
-                $found_index = -1;
-                for($j = 0; $j < 5; $j++) {
-                    // 삭제 요청으로 NULL이 된 칸을 찾습니다.
-                    if ($new_paths_to_update[$j] === null) {
-                        $found_index = $j;
-                        break;
-                    }
-                }
-
-                // 삭제된 칸이 없으면, 덮어쓸 첫 번째 칸을 찾습니다. (클라이언트 로직상 첫 번째 칸이 선택될 것임)
-                if ($found_index === -1) {
-                     // 클라이언트의 파일 선택 순서에 따라 덮어쓰기 (새로 업로드된 파일이 몇 번째 필드인지 알 수 없으므로, 모든 필드를 덮어쓰기 하는 방식으로 처리)
-                     // 하지만 클라이언트 JS에서 어떤 파일 인덱스에 매핑되어 올라왔는지 알 수 없으므로, 
-                     // 여기서는 단순히 '덮어쓰기' 플래그가 넘어왔다고 가정하고, $current_image_paths 배열을 활용합니다.
-                     // (현재 코드는 다중 파일 업로드를 지원하지만, UI 로직에서 각 파일을 어떤 DB 컬럼에 매핑할지 결정해야 합니다.)
-                     // 💡 UI에서는 5개의 파일 입력 필드를 별도로 만들고, 각 필드를 'photos[]' 배열로 보내며, 동시에 'current_image_pathN'과 'remove_photoN'을 보내는 것으로 가정합니다.
-
-                     // 💡 [임시 수정] 현재 POST로 넘어오는 파일 배열의 순서(index i)와 DB 경로 인덱스(index j)를 1:1 매칭하는 것은 불가능하므로,
-                     // UI에서 넘어온 `current_image_pathN`을 활용합니다.
-                     // 클라이언트의 JS 파일(main.js)에서 'photos' 배열이 아닌, 5개의 개별 파일 필드를 사용하도록 가정을 변경합니다. (하단의 PHP 코드에서 반영)
-                }
-
-                // 💡 [재수정] 클라이언트에서 5개의 개별 `photo[1]`, `photo[2]` ... 필드로 전송한다고 가정하고 처리합니다.
-                // 이 코드는 `photos` 배열로 넘어온 모든 새 파일을, DB의 *비어있거나 삭제 요청된* `image_pathN`에 순서대로 채워 넣는 방식으로 동작합니다.
-                
-                // 비어있는 첫 번째 인덱스를 찾아 새 파일 경로를 삽입
-                $insert_index = -1;
-                for($j = 0; $j < 5; $j++) {
-                    if ($new_paths_to_update[$j] === null) {
-                        $insert_index = $j;
-                        break;
-                    }
-                }
-                
-                // 비어있는 칸을 찾았으면 삽입
-                if ($insert_index !== -1) {
-                    $new_paths_to_update[$insert_index] = $unique_filename;
-                } else {
-                    // 5개 모두 꽉 차 있다면, 이 파일은 무시되거나 에러로 처리되어야 합니다.
-                    // 현재 로직에서는 5개 이상 업로드를 허용하지 않으므로, 이 코드는 실행되지 않아야 합니다.
-                    @unlink($full_path);
-                    @unlink($thumb_path);
-                }
-
             } else {
                 @unlink($full_path); // 썸네일 생성 실패 시 원본 삭제
             }
@@ -216,6 +190,7 @@ if (!empty($uploaded_files) && is_array($uploaded_files['name'])) {
 // -----------------------------------------------------
 // 3. 최종 SQL 쿼리 구성
 // -----------------------------------------------------
+// rating 필드 타입을 `s` (string)으로 바인딩하여 NULL 값을 올바르게 처리합니다.
 $update_columns = "address = ?, jibun_address = ?, detail_address = ?, rating = ?, star_rating = ?, 
                    image_path1 = ?, image_path2 = ?, image_path3 = ?, image_path4 = ?, image_path5 = ?";
 $types = "ssssdsssss";
@@ -244,13 +219,22 @@ if ($stmt === false) {
 }
 
 // PHP 8.0 이상 환경을 가정하여 bind_param 호출
-if (!$stmt->bind_param($types, ...$bind_params)) {
+// $bind_params 배열의 요소들을 참조로 변환 (PHP 8.0 이전 호환을 위해)
+// PHP 8.0 이상에서는 ...$bind_params로 충분하나, 안전을 위해 배열을 만듭니다.
+$bind_refs = [];
+foreach ($bind_params as $key => $value) {
+    $bind_refs[] = &$bind_params[$key];
+}
+
+// bind_param 호출
+if (!$stmt->bind_param($types, ...$bind_refs)) {
     $error_message = '바인딩 실패: ' . $stmt->error;
     $stmt->close();
     $conn->close();
     echo json_encode(['success' => false, 'message' => $error_message]);
     exit();
 }
+
 
 if ($stmt->execute()) {
     if ($stmt->affected_rows > 0 || $image_changed) {
