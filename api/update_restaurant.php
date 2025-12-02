@@ -2,19 +2,17 @@
 // 파일명: www/api/update_restaurant.php
 
 // 1. [중요] 모든 출력(에러 메시지 포함)을 버퍼에 담아둡니다. 
-// 나중에 JSON만 깨끗하게 보내기 위함입니다.
 ob_start();
 
 // 2. 에러 화면 출력 끄기 (JSON 깨짐 방지)
 ini_set('display_errors', 0);
-error_reporting(E_ALL); // 로그에는 남기되 화면엔 출력 안 함
+error_reporting(E_ALL); 
 
 header('Content-Type: application/json');
 require_once 'db_config.php';
 
 // 응답을 보내고 종료하는 헬퍼 함수
 function send_response($success, $message, $data = null) {
-    // 버퍼에 쌓인 잡다한 텍스트(Warning 등)를 싹 지웁니다.
     ob_end_clean(); 
     
     $response = ['success' => $success, 'message' => $message];
@@ -37,7 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $upload_dir = $_SERVER['DOCUMENT_ROOT'] . '/images/';
 $thumb_dir = $upload_dir . 'thumb/';
 
-// 폴더가 없으면 생성 (에러 억제 @ 사용)
 if (!is_dir($upload_dir)) { @mkdir($upload_dir, 0777, true); }
 if (!is_dir($thumb_dir)) { @mkdir($thumb_dir, 0777, true); }
 
@@ -52,7 +49,6 @@ function create_thumbnail_for_update($source_path, $dest_path, $thumb_width = 30
     $thumbnail = imagecreatetruecolor($thumb_width, $thumb_width);
     if (!$thumbnail) return false;
 
-    // 투명도 처리
     imagealphablending($thumbnail, false);
     imagesavealpha($thumbnail, true);
     
@@ -68,7 +64,6 @@ function create_thumbnail_for_update($source_path, $dest_path, $thumb_width = 30
         return false;
     }
 
-    // 중앙 크롭 계산
     $src_x = 0; $src_y = 0; $src_w = $width; $src_h = $height;
     $target_w = $target_h = $thumb_width;
     
@@ -95,6 +90,10 @@ function create_thumbnail_for_update($source_path, $dest_path, $thumb_width = 30
 // 5. 파라미터 수신
 $user_id = $_SESSION['user_id'];
 $id = $_POST['id'] ?? 0;
+
+// 💡 [추가] 가게 이름 파라미터 수신
+$name = trim($_POST['name'] ?? '');
+
 $address = trim($_POST['address'] ?? '');
 $jibun_address = trim($_POST['jibun_address'] ?? '');
 $detail_address = trim($_POST['detail_address'] ?? '');
@@ -105,7 +104,6 @@ $rating = (strlen($rating) === 0) ? null : htmlspecialchars($rating, ENT_QUOTES,
 
 $star_rating = $_POST['star_rating'] ?? 0.0;
 
-// 이미지 관리 배열
 $remove_photos = [
     $_POST['remove_photo1'] ?? '0',
     $_POST['remove_photo2'] ?? '0',
@@ -121,8 +119,9 @@ $current_image_paths = [
     $_POST['current_image_path5'] ?? null
 ];
 
-if (empty($id) || empty($address)) {
-    send_response(false, 'ID와 주소는 필수입니다.');
+// 💡 [수정] 이름($name) 필수 체크 추가
+if (empty($id) || empty($name) || empty($address)) {
+    send_response(false, 'ID, 가게 이름, 주소는 필수입니다.');
 }
 if (empty($detail_address)) {
     $detail_address = null;
@@ -173,35 +172,29 @@ if (!empty($uploaded_files) && is_array($uploaded_files['name'])) {
 
         if ($db_index < 0 || $db_index >= 5) continue;
         
-        // 업로드 에러 체크
         if ($uploaded_files['error'][$file_index_str] !== UPLOAD_ERR_OK) continue;
 
         $file_tmp = $uploaded_files['tmp_name'][$file_index_str];
         
-        // 파일 정보 가져오기 (이미지 파일인지 2차 검증)
         $check = @getimagesize($file_tmp);
-        if($check === false) continue; // 이미지가 아니면 패스
+        if($check === false) continue;
 
         $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
         $unique_filename = uniqid('img_', true) . '.' . $file_extension;
         $full_path = $upload_dir . $unique_filename;
         $thumb_path = $thumb_dir . $unique_filename;
 
-        // 기존 파일 정리 (덮어쓰기 전)
         $path_to_delete_old = $new_paths_to_update[$db_index];
         if (!empty($path_to_delete_old)) {
             @unlink($upload_dir . $path_to_delete_old);
             @unlink($thumb_dir . $path_to_delete_old);
         }
 
-        // 이동 및 썸네일
         if (@move_uploaded_file($file_tmp, $full_path)) {
-            // 썸네일 생성 시도
             if (create_thumbnail_for_update($full_path, $thumb_path)) {
                 $new_paths_to_update[$db_index] = $unique_filename;
                 $image_changed = true;
             } else {
-                // 썸네일 실패 시 원본도 삭제 (깔끔하게)
                 @unlink($full_path);
             }
         }
@@ -209,10 +202,12 @@ if (!empty($uploaded_files) && is_array($uploaded_files['name'])) {
 }
 
 // 9. DB 업데이트 쿼리
-$update_columns = "address = ?, jibun_address = ?, detail_address = ?, rating = ?, star_rating = ?, 
+// 💡 [수정] name 컬럼 업데이트 추가 및 바인딩 순서 변경
+$update_columns = "name = ?, address = ?, jibun_address = ?, detail_address = ?, rating = ?, star_rating = ?, 
                    image_path1 = ?, image_path2 = ?, image_path3 = ?, image_path4 = ?, image_path5 = ?";
-$types = "ssssdsssss";
+$types = "sssssdsssss"; // name(s) 추가됨
 $bind_params = [
+    $name, // 💡 이름 추가
     $address, $jibun_address, $detail_address, $rating, $star_rating,
     $new_paths_to_update[0], $new_paths_to_update[1], $new_paths_to_update[2], 
     $new_paths_to_update[3], $new_paths_to_update[4]
